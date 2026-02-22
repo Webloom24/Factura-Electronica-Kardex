@@ -11,6 +11,7 @@ export default function App() {
       <nav className="main-nav">
         <span className="brand">🧾 Factura Simulada</span>
         <span className="sim-badge">SIMULADO</span>
+        <span className="nav-spacer" />
         <NavLink to="/invoices"  className={({ isActive }) => isActive ? 'active' : ''}>Facturas</NavLink>
         <NavLink to="/customers" className={({ isActive }) => isActive ? 'active' : ''}>Clientes</NavLink>
         <NavLink to="/products"  className={({ isActive }) => isActive ? 'active' : ''}>Productos</NavLink>

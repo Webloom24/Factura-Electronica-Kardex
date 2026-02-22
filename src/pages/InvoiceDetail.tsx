@@ -50,7 +50,7 @@ export default function InvoiceDetail() {
             })}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div className="page-header-actions">
           <Link to="/invoices" className="btn btn-ghost">← Volver</Link>
           <button className="btn btn-primary" onClick={handlePDF} disabled={generating}>
             {generating ? <><span className="spinner" /> Generando…</> : '📄 Generar PDF'}
@@ -121,8 +121,8 @@ export default function InvoiceDetail() {
         </div>
 
         {/* Totales */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-          <div className="totals-box" style={{ minWidth: 260 }}>
+        <div className="totals-wrap">
+          <div className="totals-box">
             <div className="row"><span>Subtotal:</span><span>${fmt(invoice.subtotal)}</span></div>
             <div className="row"><span>IVA 19%:</span><span>${fmt(invoice.vat_total)}</span></div>
             <div className="row grand"><span>TOTAL:</span><span>${fmt(invoice.total)}</span></div>

@@ -109,7 +109,7 @@ export default function Customers() {
     <div>
       <div className="page-header">
         <h1>Clientes</h1>
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div className="page-header-actions">
           <button className="btn btn-warning" onClick={handleVelvetGlow}>
             ⭐ Cargar VelvetGlow
           </button>

@@ -299,10 +299,12 @@ export default function Invoices() {
       {/* Totales */}
       <div className="card">
         <div className="card-title">3. Resumen</div>
-        <div className="totals-box">
-          <div className="row"><span>Subtotal:</span> <span>${fmt(totals.subtotal)}</span></div>
-          <div className="row"><span>IVA 19%:</span> <span>${fmt(totals.vat_total)}</span></div>
-          <div className="row grand"><span>TOTAL:</span> <span>${fmt(totals.total)}</span></div>
+        <div className="totals-wrap">
+          <div className="totals-box">
+            <div className="row"><span>Subtotal:</span> <span>${fmt(totals.subtotal)}</span></div>
+            <div className="row"><span>IVA 19%:</span> <span>${fmt(totals.vat_total)}</span></div>
+            <div className="row grand"><span>TOTAL:</span> <span>${fmt(totals.total)}</span></div>
+          </div>
         </div>
 
         <div className="form-actions" style={{ marginTop: 16 }}>
