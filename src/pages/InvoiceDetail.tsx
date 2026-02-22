@@ -130,17 +130,6 @@ export default function InvoiceDetail() {
         </div>
       </div>
 
-      {/* CUFE */}
-      <div className="card">
-        <div className="cufe-display">
-          <label>⚠ CUFE (SIMULADO – sin validez fiscal)</label>
-          <code>{invoice.cufe}</code>
-          <p style={{ fontSize: '0.78rem', color: '#92400e', marginTop: 6, fontStyle: 'italic' }}>
-            Generado localmente para fines académicos. No tiene validez ante la DIAN
-            ni constituye documento fiscal real.
-          </p>
-        </div>
-      </div>
     </div>
   )
 }

@@ -222,36 +222,6 @@ export function downloadInvoicePDF(invoice: Invoice): void {
   dashedLine()
 
   // ════════════════════════════════════════════════════════════
-  // UFE / CUFE
-  // ════════════════════════════════════════════════════════════
-  const cufeLines = invoice.cufe.match(/.{1,32}/g) ?? [invoice.cufe]
-  const boxH      = 8 + cufeLines.length * 3.8 + 6
-
-  doc.setFillColor(255, 251, 230)
-  doc.setDrawColor(230, 168, 23)
-  doc.setLineWidth(0.3)
-  doc.rect(M, y, CW, boxH, 'FD')
-
-  bold(8)
-  doc.setTextColor(90, 62, 0)
-  doc.text('UFE (SIMULADO):', M + 3, y + 5)
-
-  doc.setFont('courier', 'normal')
-  doc.setFontSize(7.5)
-  cufeLines.forEach((part, i) => {
-    doc.text(part, M + 3, y + 9 + i * 3.8)
-  })
-
-  doc.setFont('helvetica', 'italic')
-  doc.setFontSize(7)
-  doc.text(
-    '⚠ Generado localmente. No tiene validez ante la DIAN. Uso exclusivamente académico.',
-    M + 3, y + boxH - 2
-  )
-  doc.setTextColor(0)
-  y += boxH + 4
-
-  // ════════════════════════════════════════════════════════════
   // RESOLUCIÓN
   // ════════════════════════════════════════════════════════════
   normal(7.5)
