@@ -75,11 +75,11 @@ export interface Emisor {
 }
 
 export const DEFAULT_EMISOR: Emisor = {
-  name:       'MI EMPRESA S.A.S.',
+  name:       'Ruby Rose & Trendy',
   nit:        '900.000.001-0',
-  address:    'Calle 1 # 1-1, Ciudad',
+  address:    'Oficina Principal',
   phone:      '300-000-0000',
-  email:      'facturacion@miempresa.com',
+  email:      'facturacion@rubyrosetrendy.com',
   resolution: 'Res. XXXXXX · Rango: 0001 – 1000 · Vigencia: 2024 – 2026',
 };
 
@@ -341,6 +341,12 @@ export const SEED_PRODUCTS: ProductSeed[] = [
 const INIT_KEY = 'fs_initialized';
 
 export function initSeedData(): void {
+  // Migrar emisor si todavía tiene el valor genérico anterior
+  const stored = load<Emisor>(KEYS.emisor, DEFAULT_EMISOR);
+  if (stored.name === 'MI EMPRESA S.A.S.') {
+    saveEmisor({ ...stored, name: 'Ruby Rose & Trendy', email: 'facturacion@rubyrosetrendy.com', address: 'Oficina Principal' });
+  }
+
   if (localStorage.getItem(INIT_KEY)) return; // ya fue inicializado
 
   // Solo cargar si no hay productos
