@@ -13,7 +13,13 @@ function fmt(n: number): string {
 }
 
 export function downloadInvoicePDF(invoice: Invoice): void {
-  const EMISOR = getEmisor()
+  const base = getEmisor()
+  const EMISOR = {
+    ...base,
+    name: invoice.supplier === 'ruby_rose' ? 'Ruby Rose'
+        : invoice.supplier === 'trendy'    ? 'Trendy'
+        : base.name,
+  }
   const doc    = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
   const PW     = 210
   const M      = 15

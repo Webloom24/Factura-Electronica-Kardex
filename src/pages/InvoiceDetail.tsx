@@ -6,7 +6,13 @@ import { useState } from 'react'
 export default function InvoiceDetail() {
   const { id } = useParams<{ id: string }>()
   const invoice = getInvoices().find(inv => inv.id === id)
-  const emisor  = getEmisor()
+  const baseEmisor = getEmisor()
+  const emisor = {
+    ...baseEmisor,
+    name: invoice?.supplier === 'ruby_rose' ? 'Ruby Rose'
+        : invoice?.supplier === 'trendy'    ? 'Trendy'
+        : baseEmisor.name,
+  }
   const [generating, setGenerating] = useState(false)
   const [pdfError, setPdfError] = useState('')
 
