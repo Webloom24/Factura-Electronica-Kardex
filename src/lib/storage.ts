@@ -42,6 +42,7 @@ export interface InvoiceItem {
 export interface Invoice {
   id: string;
   invoice_number: string;   // "000001"
+  supplier?: 'ruby_rose' | 'trendy';
   customer_id: string;
   customer_snapshot: Pick<
     Customer,

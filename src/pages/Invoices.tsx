@@ -14,17 +14,40 @@ interface ItemRow {
   product_name: string
   sku?: string
   unit: string
-  quantity: string       // string para el input
-  unit_price: string     // string para el input (editable)
+  quantity: string
+  unit_price: string
 }
 
 function emptyRow(): ItemRow {
   return { rowId: generateId(), product_id: '', product_name: '', unit: 'UND', quantity: '1', unit_price: '' }
 }
 
-// ── Modo: list | create ───────────────────────────────────────────────────
-type Mode = 'list' | 'create'
+// ── Tiendas ────────────────────────────────────────────────────────────────
+type Supplier = 'ruby_rose' | 'trendy'
+type Mode = 'list' | 'create-ruby' | 'create-trendy'
 
+const SUPPLIER_INFO: Record<Supplier, { label: string; skuPrefix: string; color: string; bg: string }> = {
+  ruby_rose: { label: 'Ruby Rose', skuPrefix: 'MEL-', color: '#fff', bg: '#db2777' },
+  trendy:    { label: 'Trendy',    skuPrefix: 'CAM-', color: '#fff', bg: '#7c3aed' },
+}
+
+function supplierFromMode(mode: Mode): Supplier | null {
+  if (mode === 'create-ruby') return 'ruby_rose'
+  if (mode === 'create-trendy') return 'trendy'
+  return null
+}
+
+function SupplierBadge({ supplier }: { supplier?: Supplier }) {
+  if (!supplier) return null
+  const s = SUPPLIER_INFO[supplier]
+  return (
+    <span className="badge" style={{ background: s.bg, color: s.color }}>
+      {s.label}
+    </span>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 export default function Invoices() {
   const [mode, setMode] = useState<Mode>('list')
   const [invoices, setInvoices] = useState<Invoice[]>([])
@@ -47,6 +70,21 @@ export default function Invoices() {
     setInvoices(getInvoices().slice().reverse())
   }
 
+  function goBack() {
+    setMode('list')
+    setFormError('')
+    setCustomerId('')
+    setRows([emptyRow()])
+  }
+
+  // ── Productos filtrados por tienda ──────────────────────────────────────
+  const supplier = supplierFromMode(mode)
+  const supplierProducts = useMemo(() => {
+    if (!supplier) return products
+    const prefix = SUPPLIER_INFO[supplier].skuPrefix
+    return products.filter(p => p.sku?.startsWith(prefix))
+  }, [products, supplier])
+
   // ── Cálculos en tiempo real ─────────────────────────────────────────────
   const computedRows = useMemo(() =>
     rows.map(row => {
@@ -64,7 +102,7 @@ export default function Invoices() {
   }
 
   function selectProduct(rowId: string, productId: string) {
-    const p = products.find(p => p.id === productId)
+    const p = supplierProducts.find(p => p.id === productId)
     if (!p) { setRowField(rowId, 'product_id', ''); return }
     setRows(prev => prev.map(r => r.rowId === rowId
       ? { ...r, product_id: p.id, product_name: p.name, sku: p.sku, unit: p.unit, unit_price: String(p.price_sale) }
@@ -110,6 +148,7 @@ export default function Invoices() {
 
       createInvoice({
         invoice_number: invoiceNumber,
+        supplier: supplier ?? undefined,
         customer_id: customer.id,
         customer_snapshot: {
           company_name: customer.company_name,
@@ -128,11 +167,8 @@ export default function Invoices() {
         cufe,
       })
 
-      // Reset
-      setCustomerId('')
-      setRows([emptyRow()])
+      goBack()
       refresh()
-      setMode('list')
     } finally {
       setSaving(false)
     }
@@ -146,13 +182,31 @@ export default function Invoices() {
   // LISTA
   // ──────────────────────────────────────────────────────────────────────────
   if (mode === 'list') {
+    const noData = customers.length === 0 || products.length === 0
     return (
       <div>
         <div className="page-header">
           <h1>Facturas</h1>
-          {customers.length === 0 || products.length === 0
+          {noData
             ? <span className="badge badge-amber">⚠ Necesitas clientes y productos primero</span>
-            : <button className="btn btn-primary" onClick={() => setMode('create')}>+ Nueva factura</button>
+            : (
+              <div className="page-header-actions">
+                <button
+                  className="btn"
+                  style={{ background: SUPPLIER_INFO.ruby_rose.bg, color: '#fff' }}
+                  onClick={() => setMode('create-ruby')}
+                >
+                  + Ruby Rose
+                </button>
+                <button
+                  className="btn"
+                  style={{ background: SUPPLIER_INFO.trendy.bg, color: '#fff' }}
+                  onClick={() => setMode('create-trendy')}
+                >
+                  + Trendy
+                </button>
+              </div>
+            )
           }
         </div>
 
@@ -160,7 +214,7 @@ export default function Invoices() {
           {invoices.length === 0 ? (
             <div className="empty-state">
               <p>No hay facturas. Crea la primera.</p>
-              {(customers.length === 0 || products.length === 0) && (
+              {noData && (
                 <p style={{ marginTop: 12, color: '#d97706' }}>
                   Primero ve a <strong>Clientes</strong> y <strong>Productos</strong> para agregar datos.
                 </p>
@@ -172,6 +226,7 @@ export default function Invoices() {
                 <thead>
                   <tr>
                     <th>N° Factura</th>
+                    <th>Tienda</th>
                     <th>Fecha</th>
                     <th>Cliente</th>
                     <th className="td-right">Subtotal</th>
@@ -184,6 +239,7 @@ export default function Invoices() {
                   {invoices.map(inv => (
                     <tr key={inv.id}>
                       <td><span className="badge badge-blue">{inv.invoice_number}</span></td>
+                      <td><SupplierBadge supplier={inv.supplier} /></td>
                       <td>{new Date(inv.created_at).toLocaleDateString('es-CO')}</td>
                       <td>{inv.customer_snapshot.company_name}</td>
                       <td className="td-right">${fmt(inv.subtotal)}</td>
@@ -206,11 +262,19 @@ export default function Invoices() {
   // ──────────────────────────────────────────────────────────────────────────
   // CREAR
   // ──────────────────────────────────────────────────────────────────────────
+  const info = supplier ? SUPPLIER_INFO[supplier] : null
   return (
     <div>
       <div className="page-header">
-        <h1>Nueva Factura</h1>
-        <button className="btn btn-ghost" onClick={() => { setMode('list'); setFormError('') }}>← Volver</button>
+        <h1>
+          Nueva Factura
+          {info && (
+            <span className="badge" style={{ background: info.bg, color: info.color, marginLeft: 10, fontSize: '0.75rem' }}>
+              {info.label}
+            </span>
+          )}
+        </h1>
+        <button className="btn btn-ghost" onClick={goBack}>← Volver</button>
       </div>
 
       {formError && <div className="alert alert-error">{formError}</div>}
@@ -238,6 +302,12 @@ export default function Invoices() {
           <button className="btn btn-ghost btn-sm" onClick={addRow}>+ Agregar ítem</button>
         </div>
 
+        {supplierProducts.length === 0 && (
+          <div className="alert alert-info" style={{ marginBottom: 12 }}>
+            No hay productos registrados para esta tienda. Ve a <strong>Productos</strong> y agrega productos con SKU <strong>{info?.skuPrefix}…</strong>
+          </div>
+        )}
+
         <div className="table-wrap">
           <table>
             <thead>
@@ -261,7 +331,7 @@ export default function Invoices() {
                       style={{ width: '100%' }}
                     >
                       <option value="">— Producto —</option>
-                      {products.map(p => (
+                      {supplierProducts.map(p => (
                         <option key={p.id} value={p.id}>{p.name}{p.sku ? ` (${p.sku})` : ''}</option>
                       ))}
                     </select>
@@ -308,7 +378,7 @@ export default function Invoices() {
         </div>
 
         <div className="form-actions" style={{ marginTop: 16 }}>
-          <button className="btn btn-ghost" onClick={() => { setMode('list'); setFormError('') }}>Cancelar</button>
+          <button className="btn btn-ghost" onClick={goBack}>Cancelar</button>
           <button className="btn btn-success" onClick={handleSave} disabled={saving}>
             {saving ? <><span className="spinner" /> Guardando…</> : '💾 Guardar factura'}
           </button>
