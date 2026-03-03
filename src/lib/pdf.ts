@@ -15,9 +15,10 @@ function fmt(n: number): string {
 export function downloadInvoicePDF(invoice: Invoice): void {
   const base = getEmisor()
   const stores = getStores()
+  const activeStore = invoice.supplier ? stores.find(s => s.id === invoice.supplier) : undefined
   const EMISOR = {
     ...base,
-    name: invoice.supplier ? (stores[invoice.supplier]?.label ?? base.name) : base.name,
+    name: activeStore?.label ?? base.name,
   }
   const doc    = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
   const PW     = 210

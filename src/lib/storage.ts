@@ -42,7 +42,7 @@ export interface InvoiceItem {
 export interface Invoice {
   id: string;
   invoice_number: string; // "000001"
-  supplier?: "ruby_rose" | "trendy";
+  supplier?: string; // id de la tienda (StoreConfig.id)
   customer_id: string;
   customer_snapshot: Pick<
     Customer,
@@ -92,23 +92,21 @@ export const DEFAULT_EMISOR: Emisor = {
 };
 
 // ============================================================
-// TIENDAS (configuración de las dos tiendas)
+// TIENDAS (array dinámico, ilimitadas)
 // ============================================================
 export interface StoreConfig {
+  id: string;        // Identificador único (slug o UUID)
   label: string;     // Nombre visible de la tienda
   skuPrefix: string; // Prefijo de SKU (e.g. "MEL-")
   bg: string;        // Color de fondo del badge (hex)
 }
 
-export interface Stores {
-  ruby_rose: StoreConfig;
-  trendy: StoreConfig;
-}
+export type Stores = StoreConfig[];
 
-export const DEFAULT_STORES: Stores = {
-  ruby_rose: { label: "Ruby Rose", skuPrefix: "MEL-", bg: "#db2777" },
-  trendy:    { label: "Trendy",    skuPrefix: "CAM-", bg: "#7c3aed" },
-};
+export const DEFAULT_STORES: Stores = [
+  { id: "ruby_rose", label: "Ruby Rose", skuPrefix: "MEL-", bg: "#db2777" },
+  { id: "trendy",    label: "Trendy",    skuPrefix: "CAM-", bg: "#7c3aed" },
+];
 
 // ============================================================
 // CLAVES LOCALSTORAGE
@@ -157,7 +155,21 @@ export function saveEmisor(emisor: Emisor): void {
 }
 
 export function getStores(): Stores {
-  return load<Stores>(KEYS.stores, DEFAULT_STORES);
+  try {
+    const raw = localStorage.getItem(KEYS.stores);
+    if (!raw) return DEFAULT_STORES;
+    const parsed = JSON.parse(raw);
+    // Migrar formato antiguo (objeto {ruby_rose, trendy}) → array
+    if (!Array.isArray(parsed) && typeof parsed === "object") {
+      return Object.entries(parsed).map(([id, cfg]) => ({
+        id,
+        ...(cfg as Omit<StoreConfig, "id">),
+      }));
+    }
+    return parsed as Stores;
+  } catch {
+    return DEFAULT_STORES;
+  }
 }
 
 export function saveStores(stores: Stores): void {

@@ -8,9 +8,10 @@ export default function InvoiceDetail() {
   const invoice = getInvoices().find(inv => inv.id === id)
   const baseEmisor = getEmisor()
   const stores = getStores()
+  const activeStore = invoice?.supplier ? stores.find(s => s.id === invoice.supplier) : undefined
   const emisor = {
     ...baseEmisor,
-    name: invoice?.supplier ? (stores[invoice.supplier]?.label ?? baseEmisor.name) : baseEmisor.name,
+    name: activeStore?.label ?? baseEmisor.name,
   }
   const [generating, setGenerating] = useState(false)
   const [pdfError, setPdfError] = useState('')

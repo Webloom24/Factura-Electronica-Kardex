@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { exportData, importData, SEED_PRODUCTS, VELVETGLOW_SEED,
          getProducts, saveProducts, getCustomers, createCustomer,
          generateId, getEmisor, saveEmisor, getStores, saveStores,
-         type Emisor, type Stores } from '../lib/storage'
+         type Emisor, type StoreConfig } from '../lib/storage'
 
 export default function Settings() {
   const [importStatus, setImportStatus] = useState<{ ok: boolean; msg: string } | null>(null)
@@ -23,7 +23,7 @@ export default function Settings() {
     setEmisor(prev => ({ ...prev, [k]: ev.target.value }))
 
   // ── Tiendas ──────────────────────────────────────────────────
-  const [stores, setStores] = useState<Stores>(getStores)
+  const [stores, setStores] = useState<StoreConfig[]>(getStores)
   const [storesSaved, setStoresSaved] = useState(false)
 
   function handleSaveStores(e: React.FormEvent) {
@@ -33,9 +33,17 @@ export default function Settings() {
     setTimeout(() => setStoresSaved(false), 2500)
   }
 
-  function setStore(key: keyof Stores, field: string) {
-    return (ev: React.ChangeEvent<HTMLInputElement>) =>
-      setStores(prev => ({ ...prev, [key]: { ...prev[key], [field]: ev.target.value } }))
+  function updateStore(id: string, field: keyof StoreConfig, value: string) {
+    setStores(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s))
+  }
+
+  function addStore() {
+    const newStore: StoreConfig = { id: generateId(), label: '', skuPrefix: '', bg: '#6366f1' }
+    setStores(prev => [...prev, newStore])
+  }
+
+  function removeStore(id: string) {
+    setStores(prev => prev.filter(s => s.id !== id))
   }
 
   // ── Export ───────────────────────────────────────────────────
@@ -150,66 +158,87 @@ export default function Settings() {
 
       {/* ── TIENDAS ────────────────────────────────────────── */}
       <div className="card">
-        <div className="card-title">🏪 Configuración de tiendas</div>
+        <div className="card-title">🏪 Tiendas</div>
         <p style={{ marginBottom: 14, color: '#64748b', fontSize: '0.9rem' }}>
-          Personaliza el nombre, prefijo de SKU y color de cada tienda. Estos datos se usan en facturas y PDF.
+          Agrega, edita o elimina tiendas. Cada una tiene su nombre, prefijo de SKU y color.
         </p>
         {storesSaved && <div className="alert alert-success">Tiendas guardadas correctamente.</div>}
         <form onSubmit={handleSaveStores}>
-          {(['ruby_rose', 'trendy'] as const).map(key => (
-            <div key={key} style={{ marginBottom: 20 }}>
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10,
-              }}>
+          {stores.map((store, idx) => (
+            <div key={store.id} style={{
+              display: 'flex', gap: 10, alignItems: 'flex-end',
+              padding: '12px 0', borderBottom: idx < stores.length - 1 ? '1px solid #f1f5f9' : 'none',
+            }}>
+              {/* Preview badge */}
+              <div style={{ flexShrink: 0, paddingBottom: 6 }}>
                 <span style={{
-                  background: stores[key].bg, color: '#fff',
-                  borderRadius: 6, padding: '2px 12px', fontWeight: 600, fontSize: '0.9rem',
+                  background: store.bg || '#94a3b8', color: '#fff',
+                  borderRadius: 6, padding: '4px 14px', fontWeight: 600, fontSize: '0.85rem',
+                  whiteSpace: 'nowrap',
                 }}>
-                  {stores[key].label || (key === 'ruby_rose' ? 'Tienda 1' : 'Tienda 2')}
-                </span>
-                <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>
-                  ({key === 'ruby_rose' ? 'Tienda 1' : 'Tienda 2'})
+                  {store.label || 'Nueva tienda'}
                 </span>
               </div>
-              <div className="form-grid">
-                <div className="form-group">
-                  <label>Nombre</label>
+
+              {/* Nombre */}
+              <div className="form-group" style={{ flex: 2, margin: 0 }}>
+                <label style={{ fontSize: '0.78rem' }}>Nombre</label>
+                <input
+                  value={store.label}
+                  onChange={e => updateStore(store.id, 'label', e.target.value)}
+                  placeholder="Ej: Mi Tienda"
+                  required
+                />
+              </div>
+
+              {/* Prefijo SKU */}
+              <div className="form-group" style={{ flex: 1, margin: 0 }}>
+                <label style={{ fontSize: '0.78rem' }}>Prefijo SKU</label>
+                <input
+                  value={store.skuPrefix}
+                  onChange={e => updateStore(store.id, 'skuPrefix', e.target.value)}
+                  placeholder="Ej: TDA-"
+                />
+              </div>
+
+              {/* Color */}
+              <div className="form-group" style={{ flexShrink: 0, margin: 0 }}>
+                <label style={{ fontSize: '0.78rem' }}>Color</label>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                   <input
-                    value={stores[key].label}
-                    onChange={setStore(key, 'label')}
-                    placeholder={key === 'ruby_rose' ? 'Ruby Rose' : 'Trendy'}
-                    required
+                    type="color"
+                    value={store.bg || '#6366f1'}
+                    onChange={e => updateStore(store.id, 'bg', e.target.value)}
+                    style={{ width: 40, height: 36, padding: 2, cursor: 'pointer', border: '1px solid #e2e8f0', borderRadius: 6 }}
+                  />
+                  <input
+                    value={store.bg}
+                    onChange={e => updateStore(store.id, 'bg', e.target.value)}
+                    placeholder="#6366f1"
+                    style={{ width: 90 }}
                   />
                 </div>
-                <div className="form-group">
-                  <label>Prefijo SKU</label>
-                  <input
-                    value={stores[key].skuPrefix}
-                    onChange={setStore(key, 'skuPrefix')}
-                    placeholder={key === 'ruby_rose' ? 'MEL-' : 'CAM-'}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Color del badge</label>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <input
-                      type="color"
-                      value={stores[key].bg}
-                      onChange={setStore(key, 'bg')}
-                      style={{ width: 44, height: 36, padding: 2, cursor: 'pointer', border: '1px solid #e2e8f0', borderRadius: 6 }}
-                    />
-                    <input
-                      value={stores[key].bg}
-                      onChange={setStore(key, 'bg')}
-                      placeholder="#db2777"
-                      style={{ flex: 1 }}
-                    />
-                  </div>
-                </div>
+              </div>
+
+              {/* Borrar */}
+              <div style={{ flexShrink: 0, paddingBottom: 2 }}>
+                <button
+                  type="button"
+                  className="btn btn-danger btn-sm"
+                  onClick={() => removeStore(store.id)}
+                  disabled={stores.length <= 1}
+                  title="Eliminar tienda"
+                >
+                  ✕
+                </button>
               </div>
             </div>
           ))}
-          <div className="form-actions">
+
+          <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button type="button" className="btn btn-ghost" onClick={addStore}>
+              + Agregar tienda
+            </button>
             <button type="submit" className="btn btn-primary">💾 Guardar tiendas</button>
           </div>
         </form>

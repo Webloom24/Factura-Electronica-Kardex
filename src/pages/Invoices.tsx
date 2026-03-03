@@ -4,7 +4,7 @@ import {
   getInvoices, getCustomers, getProducts, getStores,
   createInvoice, getNextCounter, formatInvoiceNumber,
   generateCUFE, calcLineTotals, calcInvoiceTotals, generateId,
-  type Invoice, type Customer, type Product, type InvoiceItem, type Stores,
+  type Invoice, type Customer, type Product, type InvoiceItem, type StoreConfig,
 } from '../lib/storage'
 
 // ── Fila editable de item ──────────────────────────────────────────────────
@@ -22,19 +22,11 @@ function emptyRow(): ItemRow {
   return { rowId: generateId(), product_id: '', product_name: '', unit: 'UND', quantity: '1', unit_price: '' }
 }
 
-// ── Tiendas ────────────────────────────────────────────────────────────────
-type Supplier = 'ruby_rose' | 'trendy'
-type Mode = 'list' | 'create-ruby' | 'create-trendy'
-
-function supplierFromMode(mode: Mode): Supplier | null {
-  if (mode === 'create-ruby') return 'ruby_rose'
-  if (mode === 'create-trendy') return 'trendy'
-  return null
-}
-
-function SupplierBadge({ supplier, stores }: { supplier?: Supplier; stores: Stores }) {
-  if (!supplier) return null
-  const s = stores[supplier]
+// ── Badge de tienda ────────────────────────────────────────────────────────
+function SupplierBadge({ storeId, stores }: { storeId?: string; stores: StoreConfig[] }) {
+  if (!storeId) return null
+  const s = stores.find(s => s.id === storeId)
+  if (!s) return <span className="badge badge-amber">{storeId}</span>
   return (
     <span className="badge" style={{ background: s.bg, color: '#fff' }}>
       {s.label}
@@ -44,11 +36,11 @@ function SupplierBadge({ supplier, stores }: { supplier?: Supplier; stores: Stor
 
 // ──────────────────────────────────────────────────────────────────────────
 export default function Invoices() {
-  const [mode, setMode] = useState<Mode>('list')
+  const [activeStoreId, setActiveStoreId] = useState<string | null>(null)
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [products, setProducts] = useState<Product[]>([])
-  const [stores, setStores] = useState<Stores>(getStores)
+  const [stores, setStores] = useState<StoreConfig[]>(getStores)
 
   // Form state
   const [customerId, setCustomerId] = useState('')
@@ -68,19 +60,19 @@ export default function Invoices() {
   }
 
   function goBack() {
-    setMode('list')
+    setActiveStoreId(null)
     setFormError('')
     setCustomerId('')
     setRows([emptyRow()])
   }
 
-  // ── Productos filtrados por tienda ──────────────────────────────────────
-  const supplier = supplierFromMode(mode)
+  // ── Tienda activa y productos filtrados ────────────────────────────────
+  const activeStore = activeStoreId ? stores.find(s => s.id === activeStoreId) ?? null : null
+
   const supplierProducts = useMemo(() => {
-    if (!supplier) return products
-    const prefix = stores[supplier].skuPrefix
-    return products.filter(p => p.sku?.startsWith(prefix))
-  }, [products, supplier, stores])
+    if (!activeStore) return products
+    return products.filter(p => p.sku?.startsWith(activeStore.skuPrefix))
+  }, [products, activeStore])
 
   // ── Cálculos en tiempo real ─────────────────────────────────────────────
   const computedRows = useMemo(() =>
@@ -145,7 +137,7 @@ export default function Invoices() {
 
       createInvoice({
         invoice_number: invoiceNumber,
-        supplier: supplier ?? undefined,
+        supplier: activeStoreId ?? undefined,
         customer_id: customer.id,
         customer_snapshot: {
           company_name: customer.company_name,
@@ -178,7 +170,7 @@ export default function Invoices() {
   // ──────────────────────────────────────────────────────────────────────────
   // LISTA
   // ──────────────────────────────────────────────────────────────────────────
-  if (mode === 'list') {
+  if (activeStoreId === null) {
     const noData = customers.length === 0 || products.length === 0
     return (
       <div>
@@ -188,20 +180,16 @@ export default function Invoices() {
             ? <span className="badge badge-amber">⚠ Necesitas clientes y productos primero</span>
             : (
               <div className="page-header-actions">
-                <button
-                  className="btn"
-                  style={{ background: stores.ruby_rose.bg, color: '#fff' }}
-                  onClick={() => setMode('create-ruby')}
-                >
-                  + {stores.ruby_rose.label}
-                </button>
-                <button
-                  className="btn"
-                  style={{ background: stores.trendy.bg, color: '#fff' }}
-                  onClick={() => setMode('create-trendy')}
-                >
-                  + {stores.trendy.label}
-                </button>
+                {stores.map(store => (
+                  <button
+                    key={store.id}
+                    className="btn"
+                    style={{ background: store.bg, color: '#fff' }}
+                    onClick={() => setActiveStoreId(store.id)}
+                  >
+                    + {store.label}
+                  </button>
+                ))}
               </div>
             )
           }
@@ -236,7 +224,7 @@ export default function Invoices() {
                   {invoices.map(inv => (
                     <tr key={inv.id}>
                       <td><span className="badge badge-blue">{inv.invoice_number}</span></td>
-                      <td><SupplierBadge supplier={inv.supplier} stores={stores} /></td>
+                      <td><SupplierBadge storeId={inv.supplier} stores={stores} /></td>
                       <td>{new Date(inv.created_at).toLocaleDateString('es-CO')}</td>
                       <td>{inv.customer_snapshot.company_name}</td>
                       <td className="td-right">${fmt(inv.subtotal)}</td>
@@ -259,15 +247,14 @@ export default function Invoices() {
   // ──────────────────────────────────────────────────────────────────────────
   // CREAR
   // ──────────────────────────────────────────────────────────────────────────
-  const info = supplier ? stores[supplier] : null
   return (
     <div>
       <div className="page-header">
         <h1>
           Nueva Factura
-          {info && (
-            <span className="badge" style={{ background: info.bg, color: '#fff', marginLeft: 10, fontSize: '0.75rem' }}>
-              {info.label}
+          {activeStore && (
+            <span className="badge" style={{ background: activeStore.bg, color: '#fff', marginLeft: 10, fontSize: '0.75rem' }}>
+              {activeStore.label}
             </span>
           )}
         </h1>
@@ -301,7 +288,7 @@ export default function Invoices() {
 
         {supplierProducts.length === 0 && (
           <div className="alert alert-info" style={{ marginBottom: 12 }}>
-            No hay productos registrados para esta tienda. Ve a <strong>Productos</strong> y agrega productos con SKU <strong>{info?.skuPrefix}…</strong>
+            No hay productos registrados para esta tienda. Ve a <strong>Productos</strong> y agrega productos con SKU <strong>{activeStore?.skuPrefix}…</strong>
           </div>
         )}
 
