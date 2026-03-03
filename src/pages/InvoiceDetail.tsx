@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom'
-import { getInvoices, getEmisor } from '../lib/storage'
+import { getInvoices, getEmisor, getStores } from '../lib/storage'
 import { downloadInvoicePDF } from '../lib/pdf'
 import { useState } from 'react'
 
@@ -7,11 +7,10 @@ export default function InvoiceDetail() {
   const { id } = useParams<{ id: string }>()
   const invoice = getInvoices().find(inv => inv.id === id)
   const baseEmisor = getEmisor()
+  const stores = getStores()
   const emisor = {
     ...baseEmisor,
-    name: invoice?.supplier === 'ruby_rose' ? 'Ruby Rose'
-        : invoice?.supplier === 'trendy'    ? 'Trendy'
-        : baseEmisor.name,
+    name: invoice?.supplier ? (stores[invoice.supplier]?.label ?? baseEmisor.name) : baseEmisor.name,
   }
   const [generating, setGenerating] = useState(false)
   const [pdfError, setPdfError] = useState('')

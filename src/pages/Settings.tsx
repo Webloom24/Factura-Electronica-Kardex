@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { exportData, importData, SEED_PRODUCTS, VELVETGLOW_SEED,
          getProducts, saveProducts, getCustomers, createCustomer,
-         generateId, getEmisor, saveEmisor, type Emisor } from '../lib/storage'
+         generateId, getEmisor, saveEmisor, getStores, saveStores,
+         type Emisor, type Stores } from '../lib/storage'
 
 export default function Settings() {
   const [importStatus, setImportStatus] = useState<{ ok: boolean; msg: string } | null>(null)
@@ -20,6 +21,22 @@ export default function Settings() {
 
   const setE = (k: keyof Emisor) => (ev: React.ChangeEvent<HTMLInputElement>) =>
     setEmisor(prev => ({ ...prev, [k]: ev.target.value }))
+
+  // ── Tiendas ──────────────────────────────────────────────────
+  const [stores, setStores] = useState<Stores>(getStores)
+  const [storesSaved, setStoresSaved] = useState(false)
+
+  function handleSaveStores(e: React.FormEvent) {
+    e.preventDefault()
+    saveStores(stores)
+    setStoresSaved(true)
+    setTimeout(() => setStoresSaved(false), 2500)
+  }
+
+  function setStore(key: keyof Stores, field: string) {
+    return (ev: React.ChangeEvent<HTMLInputElement>) =>
+      setStores(prev => ({ ...prev, [key]: { ...prev[key], [field]: ev.target.value } }))
+  }
 
   // ── Export ───────────────────────────────────────────────────
   function handleExport() {
@@ -127,6 +144,73 @@ export default function Settings() {
           </div>
           <div className="form-actions">
             <button type="submit" className="btn btn-primary">💾 Guardar datos de empresa</button>
+          </div>
+        </form>
+      </div>
+
+      {/* ── TIENDAS ────────────────────────────────────────── */}
+      <div className="card">
+        <div className="card-title">🏪 Configuración de tiendas</div>
+        <p style={{ marginBottom: 14, color: '#64748b', fontSize: '0.9rem' }}>
+          Personaliza el nombre, prefijo de SKU y color de cada tienda. Estos datos se usan en facturas y PDF.
+        </p>
+        {storesSaved && <div className="alert alert-success">Tiendas guardadas correctamente.</div>}
+        <form onSubmit={handleSaveStores}>
+          {(['ruby_rose', 'trendy'] as const).map(key => (
+            <div key={key} style={{ marginBottom: 20 }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10,
+              }}>
+                <span style={{
+                  background: stores[key].bg, color: '#fff',
+                  borderRadius: 6, padding: '2px 12px', fontWeight: 600, fontSize: '0.9rem',
+                }}>
+                  {stores[key].label || (key === 'ruby_rose' ? 'Tienda 1' : 'Tienda 2')}
+                </span>
+                <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>
+                  ({key === 'ruby_rose' ? 'Tienda 1' : 'Tienda 2'})
+                </span>
+              </div>
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>Nombre</label>
+                  <input
+                    value={stores[key].label}
+                    onChange={setStore(key, 'label')}
+                    placeholder={key === 'ruby_rose' ? 'Ruby Rose' : 'Trendy'}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Prefijo SKU</label>
+                  <input
+                    value={stores[key].skuPrefix}
+                    onChange={setStore(key, 'skuPrefix')}
+                    placeholder={key === 'ruby_rose' ? 'MEL-' : 'CAM-'}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Color del badge</label>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <input
+                      type="color"
+                      value={stores[key].bg}
+                      onChange={setStore(key, 'bg')}
+                      style={{ width: 44, height: 36, padding: 2, cursor: 'pointer', border: '1px solid #e2e8f0', borderRadius: 6 }}
+                    />
+                    <input
+                      value={stores[key].bg}
+                      onChange={setStore(key, 'bg')}
+                      placeholder="#db2777"
+                      style={{ flex: 1 }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+          <div className="form-actions">
+            <button type="submit" className="btn btn-primary">💾 Guardar tiendas</button>
           </div>
         </form>
       </div>

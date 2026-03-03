@@ -6,7 +6,7 @@
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import type { Invoice } from './storage'
-import { getEmisor } from './storage'
+import { getEmisor, getStores } from './storage'
 
 function fmt(n: number): string {
   return n.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -14,11 +14,10 @@ function fmt(n: number): string {
 
 export function downloadInvoicePDF(invoice: Invoice): void {
   const base = getEmisor()
+  const stores = getStores()
   const EMISOR = {
     ...base,
-    name: invoice.supplier === 'ruby_rose' ? 'Ruby Rose'
-        : invoice.supplier === 'trendy'    ? 'Trendy'
-        : base.name,
+    name: invoice.supplier ? (stores[invoice.supplier]?.label ?? base.name) : base.name,
   }
   const doc    = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
   const PW     = 210

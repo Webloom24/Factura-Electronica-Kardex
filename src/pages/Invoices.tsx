@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  getInvoices, getCustomers, getProducts,
+  getInvoices, getCustomers, getProducts, getStores,
   createInvoice, getNextCounter, formatInvoiceNumber,
   generateCUFE, calcLineTotals, calcInvoiceTotals, generateId,
-  type Invoice, type Customer, type Product, type InvoiceItem,
+  type Invoice, type Customer, type Product, type InvoiceItem, type Stores,
 } from '../lib/storage'
 
 // ── Fila editable de item ──────────────────────────────────────────────────
@@ -26,22 +26,17 @@ function emptyRow(): ItemRow {
 type Supplier = 'ruby_rose' | 'trendy'
 type Mode = 'list' | 'create-ruby' | 'create-trendy'
 
-const SUPPLIER_INFO: Record<Supplier, { label: string; skuPrefix: string; color: string; bg: string }> = {
-  ruby_rose: { label: 'Ruby Rose', skuPrefix: 'MEL-', color: '#fff', bg: '#db2777' },
-  trendy:    { label: 'Trendy',    skuPrefix: 'CAM-', color: '#fff', bg: '#7c3aed' },
-}
-
 function supplierFromMode(mode: Mode): Supplier | null {
   if (mode === 'create-ruby') return 'ruby_rose'
   if (mode === 'create-trendy') return 'trendy'
   return null
 }
 
-function SupplierBadge({ supplier }: { supplier?: Supplier }) {
+function SupplierBadge({ supplier, stores }: { supplier?: Supplier; stores: Stores }) {
   if (!supplier) return null
-  const s = SUPPLIER_INFO[supplier]
+  const s = stores[supplier]
   return (
-    <span className="badge" style={{ background: s.bg, color: s.color }}>
+    <span className="badge" style={{ background: s.bg, color: '#fff' }}>
       {s.label}
     </span>
   )
@@ -53,6 +48,7 @@ export default function Invoices() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [products, setProducts] = useState<Product[]>([])
+  const [stores, setStores] = useState<Stores>(getStores)
 
   // Form state
   const [customerId, setCustomerId] = useState('')
@@ -64,6 +60,7 @@ export default function Invoices() {
     setInvoices(getInvoices().slice().reverse())
     setCustomers(getCustomers())
     setProducts(getProducts())
+    setStores(getStores())
   }, [])
 
   function refresh() {
@@ -81,9 +78,9 @@ export default function Invoices() {
   const supplier = supplierFromMode(mode)
   const supplierProducts = useMemo(() => {
     if (!supplier) return products
-    const prefix = SUPPLIER_INFO[supplier].skuPrefix
+    const prefix = stores[supplier].skuPrefix
     return products.filter(p => p.sku?.startsWith(prefix))
-  }, [products, supplier])
+  }, [products, supplier, stores])
 
   // ── Cálculos en tiempo real ─────────────────────────────────────────────
   const computedRows = useMemo(() =>
@@ -193,17 +190,17 @@ export default function Invoices() {
               <div className="page-header-actions">
                 <button
                   className="btn"
-                  style={{ background: SUPPLIER_INFO.ruby_rose.bg, color: '#fff' }}
+                  style={{ background: stores.ruby_rose.bg, color: '#fff' }}
                   onClick={() => setMode('create-ruby')}
                 >
-                  + Ruby Rose
+                  + {stores.ruby_rose.label}
                 </button>
                 <button
                   className="btn"
-                  style={{ background: SUPPLIER_INFO.trendy.bg, color: '#fff' }}
+                  style={{ background: stores.trendy.bg, color: '#fff' }}
                   onClick={() => setMode('create-trendy')}
                 >
-                  + Trendy
+                  + {stores.trendy.label}
                 </button>
               </div>
             )
@@ -239,7 +236,7 @@ export default function Invoices() {
                   {invoices.map(inv => (
                     <tr key={inv.id}>
                       <td><span className="badge badge-blue">{inv.invoice_number}</span></td>
-                      <td><SupplierBadge supplier={inv.supplier} /></td>
+                      <td><SupplierBadge supplier={inv.supplier} stores={stores} /></td>
                       <td>{new Date(inv.created_at).toLocaleDateString('es-CO')}</td>
                       <td>{inv.customer_snapshot.company_name}</td>
                       <td className="td-right">${fmt(inv.subtotal)}</td>
@@ -262,14 +259,14 @@ export default function Invoices() {
   // ──────────────────────────────────────────────────────────────────────────
   // CREAR
   // ──────────────────────────────────────────────────────────────────────────
-  const info = supplier ? SUPPLIER_INFO[supplier] : null
+  const info = supplier ? stores[supplier] : null
   return (
     <div>
       <div className="page-header">
         <h1>
           Nueva Factura
           {info && (
-            <span className="badge" style={{ background: info.bg, color: info.color, marginLeft: 10, fontSize: '0.75rem' }}>
+            <span className="badge" style={{ background: info.bg, color: '#fff', marginLeft: 10, fontSize: '0.75rem' }}>
               {info.label}
             </span>
           )}

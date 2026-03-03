@@ -92,6 +92,25 @@ export const DEFAULT_EMISOR: Emisor = {
 };
 
 // ============================================================
+// TIENDAS (configuración de las dos tiendas)
+// ============================================================
+export interface StoreConfig {
+  label: string;     // Nombre visible de la tienda
+  skuPrefix: string; // Prefijo de SKU (e.g. "MEL-")
+  bg: string;        // Color de fondo del badge (hex)
+}
+
+export interface Stores {
+  ruby_rose: StoreConfig;
+  trendy: StoreConfig;
+}
+
+export const DEFAULT_STORES: Stores = {
+  ruby_rose: { label: "Ruby Rose", skuPrefix: "MEL-", bg: "#db2777" },
+  trendy:    { label: "Trendy",    skuPrefix: "CAM-", bg: "#7c3aed" },
+};
+
+// ============================================================
 // CLAVES LOCALSTORAGE
 // ============================================================
 const KEYS = {
@@ -100,6 +119,7 @@ const KEYS = {
   invoices: "fs_invoices",
   counter: "fs_counter",
   emisor: "fs_emisor",
+  stores: "fs_stores",
 } as const;
 
 // ============================================================
@@ -134,6 +154,14 @@ export function getEmisor(): Emisor {
 
 export function saveEmisor(emisor: Emisor): void {
   save(KEYS.emisor, emisor);
+}
+
+export function getStores(): Stores {
+  return load<Stores>(KEYS.stores, DEFAULT_STORES);
+}
+
+export function saveStores(stores: Stores): void {
+  save(KEYS.stores, stores);
 }
 
 // ============================================================
@@ -500,16 +528,6 @@ export const SEED_PRODUCTS: ProductSeed[] = [
 const INIT_KEY = "fs_initialized";
 
 export function initSeedData(): void {
-  // Migrar emisor si todavía tiene el valor genérico anterior
-  const stored = load<Emisor>(KEYS.emisor, DEFAULT_EMISOR);
-  if (stored.name === "MI EMPRESA S.A.S.") {
-    saveEmisor({
-      ...stored,
-      name: "Ruby Rose & Trendy",
-      email: "facturacion@rubyrosetrendy.com",
-      address: "Oficina Principal",
-    });
-  }
 
   if (localStorage.getItem(INIT_KEY)) return; // ya fue inicializado
 
