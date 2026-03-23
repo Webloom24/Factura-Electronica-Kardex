@@ -95,17 +95,17 @@ export const DEFAULT_EMISOR: Emisor = {
 // TIENDAS (array dinámico, ilimitadas)
 // ============================================================
 export interface StoreConfig {
-  id: string;        // Identificador único (slug o UUID)
-  label: string;     // Nombre visible de la tienda
+  id: string; // Identificador único (slug o UUID)
+  label: string; // Nombre visible de la tienda
   skuPrefix: string; // Prefijo de SKU (e.g. "MEL-")
-  bg: string;        // Color de fondo del badge (hex)
+  bg: string; // Color de fondo del badge (hex)
 }
 
 export type Stores = StoreConfig[];
 
 export const DEFAULT_STORES: Stores = [
   { id: "ruby_rose", label: "Ruby Rose", skuPrefix: "MEL-", bg: "#db2777" },
-  { id: "trendy",    label: "Trendy",    skuPrefix: "CAM-", bg: "#7c3aed" },
+  { id: "trendy", label: "Trendy", skuPrefix: "CAM-", bg: "#7c3aed" },
 ];
 
 // ============================================================
@@ -303,7 +303,23 @@ export function createInvoice(
   saveInvoices(all);
   return invoice;
 }
+// ============================================================
+// NUEVAS FUNCIONES PARA EDITAR
+// ============================================================
 
+export function getInvoiceById(id: string): Invoice | undefined {
+  return getInvoices().find((inv) => inv.id === id);
+}
+
+export function updateInvoice(
+  id: string,
+  data: Partial<Omit<Invoice, "id" | "created_at">>,
+): void {
+  const all = getInvoices().map((inv) =>
+    inv.id === id ? { ...inv, ...data } : inv,
+  );
+  saveInvoices(all);
+}
 // ============================================================
 // TOTALES (cálculo consistente)
 // ============================================================
@@ -540,7 +556,6 @@ export const SEED_PRODUCTS: ProductSeed[] = [
 const INIT_KEY = "fs_initialized";
 
 export function initSeedData(): void {
-
   if (localStorage.getItem(INIT_KEY)) return; // ya fue inicializado
 
   // Solo cargar si no hay productos

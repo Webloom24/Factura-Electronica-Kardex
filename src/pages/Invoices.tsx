@@ -1,127 +1,237 @@
-import { useState, useEffect, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect, useMemo } from "react";
+import { Link } from "react-router-dom";
 import {
-  getInvoices, getCustomers, getProducts, getStores,
-  createInvoice, getNextCounter, formatInvoiceNumber,
-  generateCUFE, calcLineTotals, calcInvoiceTotals, generateId,
-  type Invoice, type Customer, type Product, type InvoiceItem, type StoreConfig,
-} from '../lib/storage'
+  getInvoices,
+  getCustomers,
+  getProducts,
+  getStores,
+  createInvoice,
+  updateInvoice,
+  getNextCounter,
+  formatInvoiceNumber,
+  generateCUFE,
+  calcLineTotals,
+  calcInvoiceTotals,
+  generateId,
+  type Invoice,
+  type Customer,
+  type Product,
+  type InvoiceItem,
+  type StoreConfig,
+} from "../lib/storage";
 
 // ── Fila editable de item ──────────────────────────────────────────────────
 interface ItemRow {
-  rowId: string
-  product_id: string
-  product_name: string
-  sku?: string
-  unit: string
-  quantity: string
-  unit_price: string
+  rowId: string;
+  product_id: string;
+  product_name: string;
+  sku?: string;
+  unit: string;
+  quantity: string;
+  unit_price: string;
 }
 
 function emptyRow(): ItemRow {
-  return { rowId: generateId(), product_id: '', product_name: '', unit: 'UND', quantity: '1', unit_price: '' }
+  return {
+    rowId: generateId(),
+    product_id: "",
+    product_name: "",
+    unit: "UND",
+    quantity: "1",
+    unit_price: "",
+  };
 }
 
 // ── Badge de tienda ────────────────────────────────────────────────────────
-function SupplierBadge({ storeId, stores }: { storeId?: string; stores: StoreConfig[] }) {
-  if (!storeId) return null
-  const s = stores.find(s => s.id === storeId)
-  if (!s) return <span className="badge badge-amber">{storeId}</span>
+function SupplierBadge({
+  storeId,
+  stores,
+}: {
+  storeId?: string;
+  stores: StoreConfig[];
+}) {
+  if (!storeId) return null;
+  const s = stores.find((s) => s.id === storeId);
+  if (!s) return <span className="badge badge-amber">{storeId}</span>;
   return (
-    <span className="badge" style={{ background: s.bg, color: '#fff' }}>
+    <span className="badge" style={{ background: s.bg, color: "#fff" }}>
       {s.label}
     </span>
-  )
+  );
 }
 
 // ──────────────────────────────────────────────────────────────────────────
 export default function Invoices() {
-  const [activeStoreId, setActiveStoreId] = useState<string | null>(null)
-  const [invoices, setInvoices] = useState<Invoice[]>([])
-  const [customers, setCustomers] = useState<Customer[]>([])
-  const [products, setProducts] = useState<Product[]>([])
-  const [stores, setStores] = useState<StoreConfig[]>(getStores)
+  const [activeStoreId, setActiveStoreId] = useState<string | null>(null);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [stores, setStores] = useState<StoreConfig[]>(getStores);
 
   // Form state
-  const [customerId, setCustomerId] = useState('')
-  const [rows, setRows] = useState<ItemRow[]>([emptyRow()])
-  const [saving, setSaving] = useState(false)
-  const [formError, setFormError] = useState('')
+  const [customerId, setCustomerId] = useState("");
+  const [rows, setRows] = useState<ItemRow[]>([emptyRow()]);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
+  // Nuevo estado para editar los datos de Ruby Rose / Trendy libremente
+  const [editCustomer, setEditCustomer] = useState({
+    company_name: "",
+    nit: "",
+    address: "",
+    phone: "",
+    email: "",
+    website: "",
+  });
+
+  const [editEmitter, setEditEmitter] = useState({
+    label: "",
+    nit: "",
+    address: "",
+    phone: "",
+    email: "",
+  });
 
   useEffect(() => {
-    setInvoices(getInvoices().slice().reverse())
-    setCustomers(getCustomers())
-    setProducts(getProducts())
-    setStores(getStores())
-  }, [])
+    setInvoices(getInvoices().slice().reverse());
+    setCustomers(getCustomers());
+    setProducts(getProducts());
+    setStores(getStores());
+  }, []);
 
   function refresh() {
-    setInvoices(getInvoices().slice().reverse())
+    setInvoices(getInvoices().slice().reverse());
   }
 
   function goBack() {
-    setActiveStoreId(null)
-    setFormError('')
-    setCustomerId('')
-    setRows([emptyRow()])
+    setActiveStoreId(null);
+    setFormError("");
+    setCustomerId("");
+    setRows([emptyRow()]);
+    setEditingInvoiceId(null);
   }
+  function startEdit(inv: any) {
+    setEditingInvoiceId(inv.id);
+    setActiveStoreId(inv.supplier || "ruby_rose");
+    setCustomerId(inv.customer_id);
 
+    // CARGAR EMISOR: Priorizamos lo que ya tiene la factura guardado
+    setEditEmitter({
+      label: inv.supplier_label || "",
+      nit: inv.supplier_nit || "",
+      address: inv.supplier_address || "",
+      phone: inv.supplier_phone || "",
+      email: inv.supplier_email || "",
+    });
+
+    // CARGAR CLIENTE: Traemos todo el snapshot
+    setEditCustomer({
+      company_name: inv.customer_snapshot.company_name,
+      nit: inv.customer_snapshot.nit,
+      address: inv.customer_snapshot.address,
+      phone: inv.customer_snapshot.phone,
+      email: inv.customer_snapshot.email || "",
+      website: inv.customer_snapshot.website || "",
+    });
+
+    // CARGAR ITEMS
+    const editRows = inv.items.map((item: any) => ({
+      rowId: generateId(),
+      product_id: item.product_id,
+      product_name: item.product_name,
+      sku: item.sku,
+      unit: item.unit,
+      quantity: String(item.quantity),
+      unit_price: String(item.unit_price),
+    }));
+
+    setRows(editRows);
+    window.scrollTo(0, 0);
+  }
   // ── Tienda activa y productos filtrados ────────────────────────────────
-  const activeStore = activeStoreId ? stores.find(s => s.id === activeStoreId) ?? null : null
+  const activeStore = activeStoreId
+    ? (stores.find((s) => s.id === activeStoreId) ?? null)
+    : null;
 
   const supplierProducts = useMemo(() => {
-    if (!activeStore) return products
-    return products.filter(p => p.sku?.startsWith(activeStore.skuPrefix))
-  }, [products, activeStore])
+    if (!activeStore) return products;
+    return products.filter((p) => p.sku?.startsWith(activeStore.skuPrefix));
+  }, [products, activeStore]);
 
   // ── Cálculos en tiempo real ─────────────────────────────────────────────
-  const computedRows = useMemo(() =>
-    rows.map(row => {
-      const qty = parseFloat(row.quantity) || 0
-      const price = parseFloat(row.unit_price) || 0
-      return { ...row, ...calcLineTotals(qty, price, 0.19) }
-    }), [rows])
+  const computedRows = useMemo(
+    () =>
+      rows.map((row) => {
+        const qty = parseFloat(row.quantity) || 0;
+        const price = parseFloat(row.unit_price) || 0;
+        return { ...row, ...calcLineTotals(qty, price, 0.19) };
+      }),
+    [rows],
+  );
 
-  const totals = useMemo(() =>
-    calcInvoiceTotals(computedRows), [computedRows])
+  const totals = useMemo(() => calcInvoiceTotals(computedRows), [computedRows]);
 
   // ── Handlers de rows ───────────────────────────────────────────────────
   function setRowField(rowId: string, field: keyof ItemRow, value: string) {
-    setRows(prev => prev.map(r => r.rowId === rowId ? { ...r, [field]: value } : r))
+    setRows((prev) =>
+      prev.map((r) => (r.rowId === rowId ? { ...r, [field]: value } : r)),
+    );
   }
 
   function selectProduct(rowId: string, productId: string) {
-    const p = supplierProducts.find(p => p.id === productId)
-    if (!p) { setRowField(rowId, 'product_id', ''); return }
-    setRows(prev => prev.map(r => r.rowId === rowId
-      ? { ...r, product_id: p.id, product_name: p.name, sku: p.sku, unit: p.unit, unit_price: String(p.price_sale) }
-      : r
-    ))
+    const p = supplierProducts.find((p) => p.id === productId);
+    if (!p) {
+      setRowField(rowId, "product_id", "");
+      return;
+    }
+    setRows((prev) =>
+      prev.map((r) =>
+        r.rowId === rowId
+          ? {
+              ...r,
+              product_id: p.id,
+              product_name: p.name,
+              sku: p.sku,
+              unit: p.unit,
+              unit_price: String(p.price_sale),
+            }
+          : r,
+      ),
+    );
   }
 
-  function addRow() { setRows(prev => [...prev, emptyRow()]) }
+  function addRow() {
+    setRows((prev) => [...prev, emptyRow()]);
+  }
   function removeRow(rowId: string) {
-    if (rows.length === 1) return
-    setRows(prev => prev.filter(r => r.rowId !== rowId))
+    if (rows.length === 1) return;
+    setRows((prev) => prev.filter((r) => r.rowId !== rowId));
   }
-
+  const handleProductChange = (rowId: string, productId: string) => {
+    selectProduct(rowId, productId);
+  };
   // ── Guardar factura ─────────────────────────────────────────────────────
   async function handleSave() {
-    setFormError('')
-    if (!customerId) { setFormError('Selecciona un cliente'); return }
-    const validRows = computedRows.filter(r => r.product_id && parseFloat(r.quantity) > 0)
-    if (validRows.length === 0) { setFormError('Agrega al menos un producto con cantidad > 0'); return }
+    setFormError("");
+    if (!customerId) {
+      setFormError("Selecciona un cliente");
+      return;
+    }
+    const validRows = computedRows.filter(
+      (r) => r.product_id && parseFloat(r.quantity) > 0,
+    );
+    if (validRows.length === 0) {
+      setFormError("Agrega al menos un producto con cantidad > 0");
+      return;
+    }
 
-    setSaving(true)
+    setSaving(true);
     try {
-      const customer = customers.find(c => c.id === customerId)!
-      const number = getNextCounter()
-      const invoiceNumber = formatInvoiceNumber(number)
-      const now = new Date().toISOString()
+      const customer = customers.find((c) => c.id === customerId)!;
+      const now = new Date().toISOString();
 
-      const cufe = await generateCUFE(invoiceNumber, customer.nit, String(totals.total), now)
-
-      const items: InvoiceItem[] = validRows.map(r => ({
+      // 1. Preparamos los items (común para ambos casos)
+      const items: InvoiceItem[] = validRows.map((r) => ({
         id: generateId(),
         product_id: r.product_id,
         product_name: r.product_name,
@@ -133,66 +243,101 @@ export default function Invoices() {
         line_subtotal: r.line_subtotal,
         line_vat: r.line_vat,
         line_total: r.line_total,
-      }))
+      }));
 
-      createInvoice({
-        invoice_number: invoiceNumber,
+      // 2. Preparamos la base de la factura con los datos editados libremente
+      const invoiceData = {
         supplier: activeStoreId ?? undefined,
-        customer_id: customer.id,
+
+        // DATOS DEL EMISOR (Lo que escribes en la sección 1 de tu imagen)
+        supplier_label: editEmitter.label,
+        supplier_nit: editEmitter.nit,
+        supplier_address: editEmitter.address,
+        supplier_phone: editEmitter.phone, // <--- Verifica que esta línea exista
+        supplier_email: editEmitter.email, // <--- Verifica que esta línea exista
+
+        customer_id: customerId,
+
+        // DATOS DEL CLIENTE (Lo que escribes en la sección 2 de tu imagen)
         customer_snapshot: {
-          company_name: customer.company_name,
-          nit: customer.nit,
-          email: customer.email,
-          phone: customer.phone,
-          address: customer.address,
-          website: customer.website,
-          legal_representative: customer.legal_representative,
-          economic_activity: customer.economic_activity,
+          ...customer, // Mantiene datos técnicos si existen
+          company_name: editCustomer.company_name,
+          nit: editCustomer.nit,
+          address: editCustomer.address,
+          phone: editCustomer.phone,
+          email: editCustomer.email,
+          website: editCustomer.website,
         },
+
         items,
         subtotal: totals.subtotal,
         vat_total: totals.vat_total,
         total: totals.total,
-        cufe,
-      })
+      };
 
-      goBack()
-      refresh()
+      // 3. Decidimos si actualizamos o creamos
+      if (editingInvoiceId) {
+        // MODO EDICIÓN
+        updateInvoice(editingInvoiceId, invoiceData);
+      } else {
+        // MODO CREACIÓN (Lógica original de número y CUFE)
+        const number = getNextCounter();
+        const invoiceNumber = formatInvoiceNumber(number);
+        const cufe = await generateCUFE(
+          invoiceNumber,
+          customer.nit,
+          String(totals.total),
+          now,
+        );
+
+        createInvoice({
+          ...invoiceData,
+          invoice_number: invoiceNumber,
+          cufe,
+        });
+      }
+
+      goBack();
+      refresh();
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
   function fmt(n: number) {
-    return n.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    return n.toLocaleString("es-CO", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
   }
 
   // ──────────────────────────────────────────────────────────────────────────
   // LISTA
   // ──────────────────────────────────────────────────────────────────────────
   if (activeStoreId === null) {
-    const noData = customers.length === 0 || products.length === 0
+    const noData = customers.length === 0 || products.length === 0;
     return (
       <div>
         <div className="page-header">
           <h1>Facturas</h1>
-          {noData
-            ? <span className="badge badge-amber">⚠ Necesitas clientes y productos primero</span>
-            : (
-              <div className="page-header-actions">
-                {stores.map(store => (
-                  <button
-                    key={store.id}
-                    className="btn"
-                    style={{ background: store.bg, color: '#fff' }}
-                    onClick={() => setActiveStoreId(store.id)}
-                  >
-                    + {store.label}
-                  </button>
-                ))}
-              </div>
-            )
-          }
+          {noData ? (
+            <span className="badge badge-amber">
+              ⚠ Necesitas clientes y productos primero
+            </span>
+          ) : (
+            <div className="page-header-actions">
+              {stores.map((store) => (
+                <button
+                  key={store.id}
+                  className="btn"
+                  style={{ background: store.bg, color: "#fff" }}
+                  onClick={() => setActiveStoreId(store.id)}
+                >
+                  + {store.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="card">
@@ -200,8 +345,9 @@ export default function Invoices() {
             <div className="empty-state">
               <p>No hay facturas. Crea la primera.</p>
               {noData && (
-                <p style={{ marginTop: 12, color: '#d97706' }}>
-                  Primero ve a <strong>Clientes</strong> y <strong>Productos</strong> para agregar datos.
+                <p style={{ marginTop: 12, color: "#d97706" }}>
+                  Primero ve a <strong>Clientes</strong> y{" "}
+                  <strong>Productos</strong> para agregar datos.
                 </p>
               )}
             </div>
@@ -221,17 +367,41 @@ export default function Invoices() {
                   </tr>
                 </thead>
                 <tbody>
-                  {invoices.map(inv => (
+                  {invoices.map((inv) => (
                     <tr key={inv.id}>
-                      <td><span className="badge badge-blue">{inv.invoice_number}</span></td>
-                      <td><SupplierBadge storeId={inv.supplier} stores={stores} /></td>
-                      <td>{new Date(inv.created_at).toLocaleDateString('es-CO')}</td>
+                      <td>
+                        <span className="badge badge-blue">
+                          {inv.invoice_number}
+                        </span>
+                      </td>
+                      <td>
+                        <SupplierBadge storeId={inv.supplier} stores={stores} />
+                      </td>
+                      <td>
+                        {new Date(inv.created_at).toLocaleDateString("es-CO")}
+                      </td>
                       <td>{inv.customer_snapshot.company_name}</td>
                       <td className="td-right">${fmt(inv.subtotal)}</td>
                       <td className="td-right">${fmt(inv.vat_total)}</td>
-                      <td className="td-right"><strong>${fmt(inv.total)}</strong></td>
+                      <td className="td-right">
+                        <strong>${fmt(inv.total)}</strong>
+                      </td>
                       <td>
-                        <Link to={`/invoices/${inv.id}`} className="btn btn-ghost btn-sm">Ver / PDF</Link>
+                        <div style={{ display: "flex", gap: "8px" }}>
+                          <Link
+                            to={`/invoices/${inv.id}`}
+                            className="btn btn-ghost btn-sm"
+                          >
+                            Ver / PDF
+                          </Link>
+                          <button
+                            onClick={() => startEdit(inv)}
+                            className="btn btn-ghost btn-sm"
+                            style={{ color: "#7c3aed" }}
+                          >
+                            ✏️ Editar
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -241,7 +411,7 @@ export default function Invoices() {
           )}
         </div>
       </div>
-    )
+    );
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -251,30 +421,139 @@ export default function Invoices() {
     <div>
       <div className="page-header">
         <h1>
-          Nueva Factura
+          {editingInvoiceId ? "Editando Factura" : "Nueva Factura"}
           {activeStore && (
-            <span className="badge" style={{ background: activeStore.bg, color: '#fff', marginLeft: 10, fontSize: '0.75rem' }}>
+            <span
+              className="badge"
+              style={{
+                background: activeStore.bg,
+                color: "#fff",
+                marginLeft: 10,
+                fontSize: "0.75rem",
+              }}
+            >
               {activeStore.label}
             </span>
           )}
         </h1>
-        <button className="btn btn-ghost" onClick={goBack}>← Volver</button>
+        <button className="btn btn-ghost" onClick={goBack}>
+          ← Volver
+        </button>
       </div>
 
       {formError && <div className="alert alert-error">{formError}</div>}
-
+      {/* 1. Empresa Emisora (Edición Libre) */}
+      <div className="card">
+        <div className="card-title">1. Datos de la Empresa Emisora</div>
+        <div className="form-grid">
+          <div className="form-group">
+            <label>Nombre de la Empresa</label>
+            <input
+              type="text"
+              value={editEmitter.label}
+              onChange={(e) =>
+                setEditEmitter({ ...editEmitter, label: e.target.value })
+              }
+            />
+          </div>
+          <div className="form-group">
+            <label>Correo Electrónico</label>
+            <input
+              type="email"
+              value={editEmitter.email} // <--- CAMBIADO
+              onChange={
+                (e) => setEditEmitter({ ...editEmitter, email: e.target.value }) // <--- CAMBIADO
+              }
+            />
+          </div>
+          <div className="form-group">
+            <label>Teléfono</label>
+            <input
+              type="text"
+              value={editEmitter.phone} // <--- CAMBIADO
+              onChange={
+                (e) => setEditEmitter({ ...editEmitter, phone: e.target.value }) // <--- CAMBIADO
+              }
+            />
+          </div>
+          <div className="form-group">
+            <label>NIT</label>
+            <input
+              type="text"
+              value={editEmitter.nit}
+              onChange={(e) =>
+                setEditEmitter({ ...editEmitter, nit: e.target.value })
+              }
+            />
+          </div>
+          <div className="form-group">
+            <label>Dirección</label>
+            <input
+              type="text"
+              value={editEmitter.address}
+              onChange={(e) =>
+                setEditEmitter({ ...editEmitter, address: e.target.value })
+              }
+            />
+          </div>
+        </div>
+      </div>
       {/* Cliente */}
       <div className="card">
-        <div className="card-title">1. Seleccionar cliente</div>
-        <div className="form-grid cols-1">
+        <div className="card-title">2. Datos del Cliente (Edición Libre)</div>
+        <div className="form-grid">
           <div className="form-group">
-            <label>Cliente *</label>
-            <select value={customerId} onChange={e => setCustomerId(e.target.value)}>
-              <option value="">— Selecciona un cliente —</option>
-              {customers.map(c => (
-                <option key={c.id} value={c.id}>{c.company_name} — NIT: {c.nit}</option>
-              ))}
-            </select>
+            <label>Razón Social</label>
+            <input
+              type="text"
+              value={editCustomer.company_name}
+              onChange={(e) =>
+                setEditCustomer({
+                  ...editCustomer,
+                  company_name: e.target.value,
+                })
+              }
+            />
+          </div>
+          <div className="form-group">
+            <label>NIT / CC</label>
+            <input
+              type="text"
+              value={editCustomer.nit}
+              onChange={(e) =>
+                setEditCustomer({ ...editCustomer, nit: e.target.value })
+              }
+            />
+          </div>
+          <div className="form-group">
+            <label>Correo Electrónico</label>
+            <input
+              type="email"
+              value={editCustomer.email}
+              onChange={(e) =>
+                setEditCustomer({ ...editCustomer, email: e.target.value })
+              }
+            />
+          </div>
+          <div className="form-group">
+            <label>Sitio Web</label>
+            <input
+              type="text"
+              value={editCustomer.website}
+              onChange={(e) =>
+                setEditCustomer({ ...editCustomer, website: e.target.value })
+              }
+            />
+          </div>
+          <div className="form-group">
+            <label>Dirección</label>
+            <input
+              type="text"
+              value={editCustomer.address}
+              onChange={(e) =>
+                setEditCustomer({ ...editCustomer, address: e.target.value })
+              }
+            />
           </div>
         </div>
       </div>
@@ -283,12 +562,16 @@ export default function Invoices() {
       <div className="card">
         <div className="items-header">
           <span>2. Productos / Ítems</span>
-          <button className="btn btn-ghost btn-sm" onClick={addRow}>+ Agregar ítem</button>
+          <button className="btn btn-ghost btn-sm" onClick={addRow}>
+            + Agregar ítem
+          </button>
         </div>
 
         {supplierProducts.length === 0 && (
           <div className="alert alert-info" style={{ marginBottom: 12 }}>
-            No hay productos registrados para esta tienda. Ve a <strong>Productos</strong> y agrega productos con SKU <strong>{activeStore?.skuPrefix}…</strong>
+            No hay productos registrados para esta tienda. Ve a{" "}
+            <strong>Productos</strong> y agrega productos con SKU{" "}
+            <strong>{activeStore?.skuPrefix}…</strong>
           </div>
         )}
 
@@ -308,40 +591,85 @@ export default function Invoices() {
             <tbody>
               {computedRows.map((row) => (
                 <tr key={row.rowId}>
-                  <td style={{ minWidth: 180 }}>
+                  {/* COLUMNA 1: PRODUCTO (Selector + Nombre editable) */}
+                  <td style={{ minWidth: 250 }}>
                     <select
-                      value={row.product_id}
-                      onChange={e => selectProduct(row.rowId, e.target.value)}
-                      style={{ width: '100%' }}
+                      className="form-control"
+                      value={row.product_id || ""}
+                      onChange={(e) =>
+                        handleProductChange(row.rowId, e.target.value)
+                      }
                     >
-                      <option value="">— Producto —</option>
-                      {supplierProducts.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}{p.sku ? ` (${p.sku})` : ''}</option>
+                      <option value="">— Seleccionar Producto —</option>
+                      {products.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
                       ))}
                     </select>
+                    {/* Este input permite cambiar el nombre sin afectar el inventario */}
+                    <input
+                      type="text"
+                      className="mt-1"
+                      style={{
+                        fontSize: "12px",
+                        width: "100%",
+                        border: "none",
+                        background: "transparent",
+                        color: "#666",
+                      }}
+                      value={row.product_name}
+                      onChange={(e) =>
+                        setRowField(row.rowId, "product_name", e.target.value)
+                      }
+                      placeholder="Nombre visible..."
+                    />
                   </td>
+
+                  {/* COLUMNA 2: UNIDAD (Solo texto) */}
                   <td>{row.unit}</td>
+
+                  {/* COLUMNA 3: CANTIDAD (Su propia celda) */}
                   <td>
                     <input
-                      type="number" min="1" step="1"
+                      type="number"
+                      className="form-control td-right"
                       value={row.quantity}
-                      onChange={e => setRowField(row.rowId, 'quantity', e.target.value)}
-                      style={{ width: 70, textAlign: 'right' }}
+                      onChange={(e) =>
+                        setRowField(row.rowId, "quantity", e.target.value)
+                      }
+                      style={{ width: 80 }}
                     />
                   </td>
+
+                  {/* COLUMNA 4: PRECIO UNITARIO */}
                   <td>
                     <input
-                      type="number" min="0" step="0.01"
+                      type="number"
+                      className="form-control td-right"
                       value={row.unit_price}
-                      onChange={e => setRowField(row.rowId, 'unit_price', e.target.value)}
-                      style={{ width: 110, textAlign: 'right' }}
+                      onChange={(e) =>
+                        setRowField(row.rowId, "unit_price", e.target.value)
+                      }
+                      style={{ width: 120 }}
                     />
                   </td>
+
+                  {/* COLUMNA 5 Y 6: TOTALES (Automáticos) */}
                   <td className="td-right">${fmt(row.line_vat)}</td>
-                  <td className="td-right"><strong>${fmt(row.line_total)}</strong></td>
+                  <td className="td-right">
+                    <strong>${fmt(row.line_total)}</strong>
+                  </td>
+
+                  {/* COLUMNA 7: BOTÓN ELIMINAR */}
                   <td>
-                    <button className="btn btn-danger btn-sm" onClick={() => removeRow(row.rowId)}
-                      disabled={rows.length === 1}>✕</button>
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={() => removeRow(row.rowId)}
+                      disabled={rows.length === 1}
+                    >
+                      ✕
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -355,19 +683,37 @@ export default function Invoices() {
         <div className="card-title">3. Resumen</div>
         <div className="totals-wrap">
           <div className="totals-box">
-            <div className="row"><span>Subtotal:</span> <span>${fmt(totals.subtotal)}</span></div>
-            <div className="row"><span>IVA 19%:</span> <span>${fmt(totals.vat_total)}</span></div>
-            <div className="row grand"><span>TOTAL:</span> <span>${fmt(totals.total)}</span></div>
+            <div className="row">
+              <span>Subtotal:</span> <span>${fmt(totals.subtotal)}</span>
+            </div>
+            <div className="row">
+              <span>IVA 19%:</span> <span>${fmt(totals.vat_total)}</span>
+            </div>
+            <div className="row grand">
+              <span>TOTAL:</span> <span>${fmt(totals.total)}</span>
+            </div>
           </div>
         </div>
 
         <div className="form-actions" style={{ marginTop: 16 }}>
-          <button className="btn btn-ghost" onClick={goBack}>Cancelar</button>
-          <button className="btn btn-success" onClick={handleSave} disabled={saving}>
-            {saving ? <><span className="spinner" /> Guardando…</> : '💾 Guardar factura'}
+          <button className="btn btn-ghost" onClick={goBack}>
+            Cancelar
+          </button>
+          <button
+            className="btn btn-success"
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? (
+              <>
+                <span className="spinner" /> Guardando…
+              </>
+            ) : (
+              "💾 Guardar factura"
+            )}
           </button>
         </div>
       </div>
     </div>
-  )
+  );
 }

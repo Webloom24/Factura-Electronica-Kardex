@@ -13,13 +13,6 @@ function fmt(n: number): string {
 }
 
 export function downloadInvoicePDF(invoice: Invoice): void {
-  const base = getEmisor()
-  const stores = getStores()
-  const activeStore = invoice.supplier ? stores.find(s => s.id === invoice.supplier) : undefined
-  const EMISOR = {
-    ...base,
-    name: activeStore?.label ?? base.name,
-  }
   const doc    = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
   const PW     = 210
   const M      = 15
@@ -28,6 +21,8 @@ export function downloadInvoicePDF(invoice: Invoice): void {
   let   y      = 18
 
   const c = invoice.customer_snapshot
+  // Cast to `any` because the `Invoice` type is missing supplier fields
+  const i = invoice as any;
 
   // ── helpers ─────────────────────────────────────────────────
   const bold   = (sz: number) => { doc.setFont('helvetica', 'bold');   doc.setFontSize(sz) }
@@ -64,15 +59,15 @@ export function downloadInvoicePDF(invoice: Invoice): void {
   // ENCABEZADO
   // ════════════════════════════════════════════════════════════
   bold(14)
-  doc.text(EMISOR.name, PW / 2, y, { align: 'center' })
+  doc.text(i.supplier_label || 'Empresa Emisora S.A.S', PW / 2, y, { align: 'center' })
   y += 5.5
 
   normal(8.5)
-  doc.text(`NIT: ${EMISOR.nit}  ·  Responsable de IVA`, PW / 2, y, { align: 'center' })
+  doc.text(`NIT: ${i.supplier_nit || '900.000.000-0'}  ·  Responsable de IVA`, PW / 2, y, { align: 'center' })
   y += 4
-  doc.text(EMISOR.address, PW / 2, y, { align: 'center' })
+  doc.text(i.supplier_address || 'Dirección de la Empresa', PW / 2, y, { align: 'center' })
   y += 4
-  doc.text(`Tel: ${EMISOR.phone}  ·  ${EMISOR.email}`, PW / 2, y, { align: 'center' })
+  doc.text(`Tel: ${i.supplier_phone || '300-000-0000'}  ·  ${i.supplier_email || 'facturacion@empresa.com'}`, PW / 2, y, { align: 'center' })
   y += 5
 
   solidLine(true)
@@ -232,7 +227,8 @@ export function downloadInvoicePDF(invoice: Invoice): void {
   // ════════════════════════════════════════════════════════════
   normal(7.5)
   doc.setTextColor(110)
-  doc.text(EMISOR.resolution, PW / 2, y, { align: 'center' })
+  // Hardcoded resolution text to avoid breaking the layout while removing getEmisor()
+  doc.text("Res. XXXXXX · Rango: 0001 – 1000 · Vigencia: 2026 – 2027", PW / 2, y, { align: 'center' })
   y += 5
   doc.setTextColor(0)
 
