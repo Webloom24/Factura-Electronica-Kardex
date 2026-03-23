@@ -7,11 +7,11 @@ export default function InvoiceDetail() {
   const { id } = useParams<{ id: string }>();
   const invoice = getInvoices().find((inv) => inv.id === id);
   const emisor = {
-    name: invoice.supplier_label || "Empresa Emisora",
-    nit: invoice.supplier_nit || "",
-    address: invoice.supplier_address || "",
-    phone: invoice.supplier_phone || "",
-    email: invoice.supplier_email || "",
+    name: invoice?.supplier_label || "Empresa Emisora",
+    nit: invoice?.supplier_nit || "",
+    address: invoice?.supplier_address || "",
+    phone: invoice?.supplier_phone || "",
+    email: invoice?.supplier_email || "",
   };
   const [generating, setGenerating] = useState(false);
   const [pdfError, setPdfError] = useState("");

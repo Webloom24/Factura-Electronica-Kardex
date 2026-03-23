@@ -61,6 +61,11 @@ export interface Invoice {
   total: number;
   cufe: string; // hash simulado
   created_at: string;
+  supplier_label?: string;
+  supplier_nit?: string;
+  supplier_address?: string;
+  supplier_phone?: string;
+  supplier_email?: string;
 }
 
 export interface AppData {
