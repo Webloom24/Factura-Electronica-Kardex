@@ -213,10 +213,13 @@ export default function Invoices() {
   // ── Guardar factura ─────────────────────────────────────────────────────
   async function handleSave() {
     setFormError("");
-    if (!customerId) {
-      setFormError("Selecciona un cliente");
+    // VALIDACIÓN: O se elige un cliente o se escribe el nombre de la empresa
+    if (!customerId && !editCustomer.company_name.trim()) {
+      setFormError("Selecciona un cliente o ingresa su Razón Social");
       return;
     }
+
+    // VALIDACIÓN: Debe haber al menos un producto en la lista
     const validRows = computedRows.filter(
       (r) => r.product_id && parseFloat(r.quantity) > 0,
     );
@@ -227,7 +230,6 @@ export default function Invoices() {
 
     setSaving(true);
     try {
-      const customer = customers.find((c) => c.id === customerId)!;
       const now = new Date().toISOString();
 
       // 1. Preparamos los items (común para ambos casos)
@@ -245,29 +247,37 @@ export default function Invoices() {
         line_total: r.line_total,
       }));
 
-      // 2. Preparamos la base de la factura con los datos editados libremente
+      // 2. Preparamos el SNAPSHOT del cliente.
+      // Inicia con datos de un cliente existente si se seleccionó uno.
+      const baseCustomer = customerId
+        ? customers.find((c) => c.id === customerId)
+        : undefined;
+
+      const customerSnapshot: Partial<Customer> = {
+        ...(baseCustomer || {}), // Base de datos si existe, si no, objeto vacío
+        // Sobrescribe o llena con los datos de edición libre.
+        company_name: editCustomer.company_name,
+        nit: editCustomer.nit,
+        address: editCustomer.address,
+        phone: editCustomer.phone,
+        email: editCustomer.email,
+        website: editCustomer.website,
+      };
+
+      // 3. Preparamos la base de la factura
       const invoiceData = {
         supplier: activeStoreId ?? undefined,
 
-        // DATOS DEL EMISOR (Lo que escribes en la sección 1 de tu imagen)
+        // DATOS DEL EMISOR (Editables)
         supplier_label: editEmitter.label,
         supplier_nit: editEmitter.nit,
         supplier_address: editEmitter.address,
-        supplier_phone: editEmitter.phone, // <--- Verifica que esta línea exista
-        supplier_email: editEmitter.email, // <--- Verifica que esta línea exista
+        supplier_phone: editEmitter.phone,
+        supplier_email: editEmitter.email,
 
-        customer_id: customerId,
-
-        // DATOS DEL CLIENTE (Lo que escribes en la sección 2 de tu imagen)
-        customer_snapshot: {
-          ...customer, // Mantiene datos técnicos si existen
-          company_name: editCustomer.company_name,
-          nit: editCustomer.nit,
-          address: editCustomer.address,
-          phone: editCustomer.phone,
-          email: editCustomer.email,
-          website: editCustomer.website,
-        },
+        // DATOS DEL CLIENTE
+        customer_id: customerId, // Puede ser "" si es manual
+        customer_snapshot: customerSnapshot,
 
         items,
         subtotal: totals.subtotal,
@@ -275,17 +285,17 @@ export default function Invoices() {
         total: totals.total,
       };
 
-      // 3. Decidimos si actualizamos o creamos
+      // 4. Decidimos si actualizamos o creamos
       if (editingInvoiceId) {
-        // MODO EDICIÓN
+        // MODO EDICIÓN: Simplemente actualiza con los nuevos datos
         updateInvoice(editingInvoiceId, invoiceData);
       } else {
-        // MODO CREACIÓN (Lógica original de número y CUFE)
+        // MODO CREACIÓN: Genera número, CUFE, etc.
         const number = getNextCounter();
         const invoiceNumber = formatInvoiceNumber(number);
         const cufe = await generateCUFE(
           invoiceNumber,
-          customer.nit,
+          customerSnapshot.nit || "222222222222", // NIT de consumidor final si está vacío
           String(totals.total),
           now,
         );
