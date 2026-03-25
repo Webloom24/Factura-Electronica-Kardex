@@ -253,7 +253,7 @@ export default function Invoices() {
         ? customers.find((c) => c.id === customerId)
         : undefined;
 
-      const customerSnapshot: Partial<Customer> = {
+      const customerSnapshot = {
         ...(baseCustomer || {}), // Base de datos si existe, si no, objeto vacío
         // Sobrescribe o llena con los datos de edición libre.
         company_name: editCustomer.company_name,
