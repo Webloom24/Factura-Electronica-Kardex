@@ -5,6 +5,7 @@ import {
   getCustomers,
   getProducts,
   getStores,
+  PRODUCTS_UPDATED_EVENT,
   createInvoice,
   updateInvoice,
   getNextCounter,
@@ -99,6 +100,21 @@ export default function Invoices() {
     setStores(getStores());
   }, []);
 
+  useEffect(() => {
+    const refreshProducts = () => {
+      setProducts(getProducts());
+      setStores(getStores());
+    };
+
+    window.addEventListener(PRODUCTS_UPDATED_EVENT, refreshProducts);
+    window.addEventListener("storage", refreshProducts);
+
+    return () => {
+      window.removeEventListener(PRODUCTS_UPDATED_EVENT, refreshProducts);
+      window.removeEventListener("storage", refreshProducts);
+    };
+  }, []);
+
   function refresh() {
     setInvoices(getInvoices().slice().reverse());
   }
@@ -179,9 +195,25 @@ export default function Invoices() {
   }
 
   function selectProduct(rowId: string, productId: string) {
-    const p = supplierProducts.find((p) => p.id === productId);
+    const normalizedProductId = String(productId);
+    const p = supplierProducts.find(
+      (p) => String(p.id) === normalizedProductId,
+    );
     if (!p) {
-      setRowField(rowId, "product_id", "");
+      setRows((prev) =>
+        prev.map((r) =>
+          r.rowId === rowId
+            ? {
+                ...r,
+                product_id: "",
+                product_name: "",
+                sku: undefined,
+                unit: "UND",
+                unit_price: "",
+              }
+            : r,
+        ),
+      );
       return;
     }
     setRows((prev) =>
@@ -189,7 +221,7 @@ export default function Invoices() {
         r.rowId === rowId
           ? {
               ...r,
-              product_id: p.id,
+              product_id: String(p.id),
               product_name: p.name,
               sku: p.sku,
               unit: p.unit,
@@ -611,8 +643,8 @@ export default function Invoices() {
                       }
                     >
                       <option value="">— Seleccionar Producto —</option>
-                      {products.map((p) => (
-                        <option key={p.id} value={p.id}>
+                      {supplierProducts.map((p) => (
+                        <option key={p.id} value={String(p.id)}>
                           {p.name}
                         </option>
                       ))}

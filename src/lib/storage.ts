@@ -125,6 +125,8 @@ const KEYS = {
   stores: "fs_stores",
 } as const;
 
+export const PRODUCTS_UPDATED_EVENT = "fs:products-updated";
+
 // ============================================================
 // HELPERS GENÉRICOS
 // ============================================================
@@ -188,6 +190,7 @@ export function getProducts(): Product[] {
 
 export function saveProducts(products: Product[]): void {
   save(KEYS.products, products);
+  window.dispatchEvent(new Event(PRODUCTS_UPDATED_EVENT));
 }
 
 export function createProduct(
