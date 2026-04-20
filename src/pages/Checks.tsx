@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import QuickCustomerModal from "../components/QuickCustomerModal";
 import { downloadCheckPDF } from "../lib/checkPdf";
 import { amountToWordsEs, formatCheckCurrency } from "../lib/checks";
 import {
@@ -10,6 +11,8 @@ import {
   type Check,
   type Customer,
 } from "../lib/storage";
+
+const CREATE_CUSTOMER_OPTION = "__create_customer__";
 
 interface CheckFormState {
   customer_id: string;
@@ -61,6 +64,7 @@ export default function Checks() {
   const [checks, setChecks] = useState<Check[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [showEditor, setShowEditor] = useState(false);
+  const [showQuickCustomerModal, setShowQuickCustomerModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<CheckFormState>(createEmptyForm);
   const [error, setError] = useState("");
@@ -107,6 +111,11 @@ export default function Checks() {
   }
 
   function handleCustomerChange(customerId: string) {
+    if (customerId === CREATE_CUSTOMER_OPTION) {
+      setShowQuickCustomerModal(true);
+      return;
+    }
+
     setField("customer_id", customerId);
     if (!customerId) return;
 
@@ -120,6 +129,20 @@ export default function Checks() {
     }));
   }
 
+  function handleQuickCustomerCreated(customer: Customer) {
+    refresh();
+    setShowQuickCustomerModal(false);
+    setForm((prev) => ({
+      ...prev,
+      customer_id: customer.id,
+      beneficiary: customer.company_name,
+    }));
+  }
+
+  const selectedCustomer = customers.find(
+    (customer) => customer.id === form.customer_id,
+  );
+
   const previewCheck = useMemo<Check>(() => {
     const parsedAmount = Number.parseFloat(form.amount);
     const safeAmount = Number.isFinite(parsedAmount) && parsedAmount > 0 ? parsedAmount : 0;
@@ -128,7 +151,8 @@ export default function Checks() {
     return {
       id: editingId ?? "preview",
       check_number: form.check_number.trim() || "000000",
-      beneficiary: form.beneficiary.trim() || "Beneficiario",
+      beneficiary:
+        selectedCustomer?.company_name || form.beneficiary.trim() || "Beneficiario",
       amount: safeAmount,
       amount_text: amountText,
       date: form.date || new Date().toISOString().slice(0, 10),
@@ -148,8 +172,8 @@ export default function Checks() {
       setError("El numero de cheque es obligatorio");
       return { ok: false, amount: 0 };
     }
-    if (!form.beneficiary.trim()) {
-      setError("El beneficiario es obligatorio");
+    if (!form.customer_id && !editingId) {
+      setError("Selecciona un cliente existente o crea uno nuevo");
       return { ok: false, amount: 0 };
     }
     if (!form.date) {
@@ -184,7 +208,8 @@ export default function Checks() {
 
     const data = {
       check_number: form.check_number.trim(),
-      beneficiary: form.beneficiary.trim(),
+      beneficiary:
+        selectedCustomer?.company_name || form.beneficiary.trim(),
       amount: validation.amount,
       amount_text: form.amount_text.trim() || undefined,
       date: form.date,
@@ -221,6 +246,12 @@ export default function Checks() {
 
       {success && <div className="alert alert-success">{success}</div>}
       {error && <div className="alert alert-error">{error}</div>}
+      {showQuickCustomerModal && (
+        <QuickCustomerModal
+          onClose={() => setShowQuickCustomerModal(false)}
+          onCreated={handleQuickCustomerCreated}
+        />
+      )}
 
       <div className="checks-layout">
         <div className="checks-list-column">
@@ -295,6 +326,9 @@ export default function Checks() {
                         onChange={(e) => handleCustomerChange(e.target.value)}
                       >
                         <option value="">- Seleccionar cliente -</option>
+                        <option value={CREATE_CUSTOMER_OPTION}>
+                          + Crear nuevo cliente
+                        </option>
                         {customers.map((customer) => (
                           <option key={customer.id} value={customer.id}>
                             {customer.company_name} - {customer.nit}
@@ -321,7 +355,8 @@ export default function Checks() {
                       <label>Beneficiario *</label>
                       <input
                         value={form.beneficiary}
-                        onChange={(e) => setField("beneficiary", e.target.value)}
+                        readOnly
+                        placeholder="Selecciona un cliente"
                       />
                     </div>
                     <div className="form-group">

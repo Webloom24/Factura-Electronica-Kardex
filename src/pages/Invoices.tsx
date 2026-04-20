@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import QuickCustomerModal from "../components/QuickCustomerModal";
 import {
   DEFAULT_VAT_RATE,
   PRODUCTS_UPDATED_EVENT,
@@ -23,6 +24,8 @@ import {
   type Product,
   type StoreConfig,
 } from "../lib/storage";
+
+const CREATE_CUSTOMER_OPTION = "__create_customer__";
 
 interface ItemRow {
   rowId: string;
@@ -132,6 +135,7 @@ function SupplierBadge({
 export default function Invoices() {
   const [activeStoreId, setActiveStoreId] = useState<string | null>(null);
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
+  const [showQuickCustomerModal, setShowQuickCustomerModal] = useState(false);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -263,6 +267,11 @@ export default function Invoices() {
   }
 
   function handleCustomerChange(nextCustomerId: string) {
+    if (nextCustomerId === CREATE_CUSTOMER_OPTION) {
+      setShowQuickCustomerModal(true);
+      return;
+    }
+
     setCustomerId(nextCustomerId);
     if (!nextCustomerId) return;
 
@@ -272,6 +281,13 @@ export default function Invoices() {
     if (!selectedCustomer) return;
 
     setEditCustomer(toEditableCustomer(selectedCustomer));
+  }
+
+  function handleQuickCustomerCreated(customer: Customer) {
+    setCustomers(getCustomers());
+    setShowQuickCustomerModal(false);
+    setCustomerId(customer.id);
+    setEditCustomer(toEditableCustomer(customer));
   }
 
   function selectProduct(rowId: string, productId: string) {
@@ -328,8 +344,8 @@ export default function Invoices() {
   async function handleSave() {
     setFormError("");
 
-    if (!customerId && !editCustomer.company_name.trim()) {
-      setFormError("Selecciona un cliente o ingresa su Razón Social");
+    if (!customerId && !editingInvoiceId) {
+      setFormError("Selecciona un cliente existente o crea uno nuevo");
       return;
     }
 
@@ -345,6 +361,9 @@ export default function Invoices() {
 
     try {
       const now = new Date().toISOString();
+      const selectedCustomer = customerId
+        ? customers.find((customer) => customer.id === customerId)
+        : undefined;
 
       const items: InvoiceItem[] = validRows.map((row) => ({
         id: generateId(),
@@ -360,16 +379,27 @@ export default function Invoices() {
         line_total: row.line_total,
       }));
 
-      const customerSnapshot = {
-        company_name: editCustomer.company_name.trim(),
-        nit: editCustomer.nit.trim(),
-        email: editCustomer.email.trim(),
-        phone: editCustomer.phone.trim(),
-        address: editCustomer.address.trim(),
-        website: editCustomer.website.trim(),
-        legal_representative: editCustomer.legal_representative.trim(),
-        economic_activity: editCustomer.economic_activity.trim(),
-      };
+      const customerSnapshot = selectedCustomer
+        ? {
+            company_name: selectedCustomer.company_name,
+            nit: selectedCustomer.nit,
+            email: selectedCustomer.email,
+            phone: selectedCustomer.phone,
+            address: selectedCustomer.address,
+            website: selectedCustomer.website ?? "",
+            legal_representative: selectedCustomer.legal_representative ?? "",
+            economic_activity: selectedCustomer.economic_activity ?? "",
+          }
+        : {
+            company_name: editCustomer.company_name.trim(),
+            nit: editCustomer.nit.trim(),
+            email: editCustomer.email.trim(),
+            phone: editCustomer.phone.trim(),
+            address: editCustomer.address.trim(),
+            website: editCustomer.website.trim(),
+            legal_representative: editCustomer.legal_representative.trim(),
+            economic_activity: editCustomer.economic_activity.trim(),
+          };
 
       const invoiceData = {
         supplier: activeStoreId ?? undefined,
@@ -548,6 +578,12 @@ export default function Invoices() {
       </div>
 
       {formError && <div className="alert alert-error">{formError}</div>}
+      {showQuickCustomerModal && (
+        <QuickCustomerModal
+          onClose={() => setShowQuickCustomerModal(false)}
+          onCreated={handleQuickCustomerCreated}
+        />
+      )}
 
       <div className="card">
         <div className="card-title">1. Datos de la Empresa Emisora</div>
@@ -614,7 +650,10 @@ export default function Invoices() {
               value={customerId}
               onChange={(e) => handleCustomerChange(e.target.value)}
             >
-              <option value="">- Factura manual / editar snapshot -</option>
+              <option value="">- Seleccionar cliente -</option>
+              <option value={CREATE_CUSTOMER_OPTION}>
+                + Crear nuevo cliente
+              </option>
               {customers.map((customer) => (
                 <option key={customer.id} value={customer.id}>
                   {customer.company_name} - {customer.nit}
@@ -627,12 +666,8 @@ export default function Invoices() {
             <input
               type="text"
               value={editCustomer.company_name}
-              onChange={(e) =>
-                setEditCustomer({
-                  ...editCustomer,
-                  company_name: e.target.value,
-                })
-              }
+              readOnly
+              placeholder="Selecciona un cliente"
             />
           </div>
           <div className="form-group">
@@ -640,9 +675,7 @@ export default function Invoices() {
             <input
               type="text"
               value={editCustomer.nit}
-              onChange={(e) =>
-                setEditCustomer({ ...editCustomer, nit: e.target.value })
-              }
+              readOnly
             />
           </div>
           <div className="form-group">
@@ -650,9 +683,7 @@ export default function Invoices() {
             <input
               type="email"
               value={editCustomer.email}
-              onChange={(e) =>
-                setEditCustomer({ ...editCustomer, email: e.target.value })
-              }
+              readOnly
             />
           </div>
           <div className="form-group">
@@ -660,9 +691,7 @@ export default function Invoices() {
             <input
               type="text"
               value={editCustomer.phone}
-              onChange={(e) =>
-                setEditCustomer({ ...editCustomer, phone: e.target.value })
-              }
+              readOnly
             />
           </div>
           <div className="form-group">
@@ -670,9 +699,7 @@ export default function Invoices() {
             <input
               type="text"
               value={editCustomer.website}
-              onChange={(e) =>
-                setEditCustomer({ ...editCustomer, website: e.target.value })
-              }
+              readOnly
             />
           </div>
           <div className="form-group full-width">
@@ -680,9 +707,7 @@ export default function Invoices() {
             <input
               type="text"
               value={editCustomer.address}
-              onChange={(e) =>
-                setEditCustomer({ ...editCustomer, address: e.target.value })
-              }
+              readOnly
             />
           </div>
           <div className="form-group">
@@ -690,12 +715,7 @@ export default function Invoices() {
             <input
               type="text"
               value={editCustomer.legal_representative}
-              onChange={(e) =>
-                setEditCustomer({
-                  ...editCustomer,
-                  legal_representative: e.target.value,
-                })
-              }
+              readOnly
             />
           </div>
           <div className="form-group">
@@ -703,12 +723,7 @@ export default function Invoices() {
             <input
               type="text"
               value={editCustomer.economic_activity}
-              onChange={(e) =>
-                setEditCustomer({
-                  ...editCustomer,
-                  economic_activity: e.target.value,
-                })
-              }
+              readOnly
             />
           </div>
         </div>
