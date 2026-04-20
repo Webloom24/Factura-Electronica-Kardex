@@ -9,6 +9,7 @@ export interface Product {
   unit: string; // default "UND"
   price_sale: number;
   vat_rate: number; // siempre 0.19
+  aplicaIVA?: boolean;
   created_at: string;
 }
 
@@ -68,10 +69,27 @@ export interface Invoice {
   supplier_email?: string;
 }
 
+export interface Check {
+  id: string;
+  check_number: string;
+  beneficiary: string;
+  amount: number;
+  amount_text?: string;
+  date: string;
+  city?: string;
+  bank?: string;
+  account?: string;
+  concept?: string;
+  signature?: string;
+  customer_id?: string;
+  created_at: string;
+}
+
 export interface AppData {
   products: Product[];
   customers: Customer[];
   invoices: Invoice[];
+  checks: Check[];
   counter: number;
 }
 
@@ -120,12 +138,14 @@ const KEYS = {
   products: "fs_products",
   customers: "fs_customers",
   invoices: "fs_invoices",
+  checks: "fs_checks",
   counter: "fs_counter",
   emisor: "fs_emisor",
   stores: "fs_stores",
 } as const;
 
 export const PRODUCTS_UPDATED_EVENT = "fs:products-updated";
+export const DEFAULT_VAT_RATE = 0.19;
 
 // ============================================================
 // HELPERS GENÉRICOS
@@ -146,6 +166,33 @@ function save<T>(key: string, value: T): void {
 
 export function generateId(): string {
   return crypto.randomUUID();
+}
+
+function normalizeVatRate(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return DEFAULT_VAT_RATE;
+  }
+  return value;
+}
+
+export function normalizeProduct(
+  product: Omit<Product, "aplicaIVA" | "vat_rate"> &
+    Partial<Pick<Product, "aplicaIVA" | "vat_rate">>,
+): Product {
+  return {
+    ...product,
+    vat_rate: normalizeVatRate(product.vat_rate),
+    aplicaIVA: product.aplicaIVA ?? true,
+  };
+}
+
+export function getProductVatRate(
+  product?: Pick<Product, "aplicaIVA" | "vat_rate"> | null,
+): number {
+  if (!product || product.aplicaIVA === false) {
+    return 0;
+  }
+  return normalizeVatRate(product.vat_rate);
 }
 
 // ============================================================
@@ -185,23 +232,27 @@ export function saveStores(stores: Stores): void {
 
 // ============================================================
 export function getProducts(): Product[] {
-  return load<Product[]>(KEYS.products, []);
+  return load<Product[]>(KEYS.products, []).map((product) =>
+    normalizeProduct(product),
+  );
 }
 
 export function saveProducts(products: Product[]): void {
-  save(KEYS.products, products);
+  save(
+    KEYS.products,
+    products.map((product) => normalizeProduct(product)),
+  );
   window.dispatchEvent(new Event(PRODUCTS_UPDATED_EVENT));
 }
 
 export function createProduct(
   data: Omit<Product, "id" | "created_at">,
 ): Product {
-  const product: Product = {
+  const product = normalizeProduct({
     ...data,
-    vat_rate: 0.19,
     id: generateId(),
     created_at: new Date().toISOString(),
-  };
+  });
   const all = getProducts();
   all.push(product);
   saveProducts(all);
@@ -213,7 +264,7 @@ export function updateProduct(
   data: Partial<Omit<Product, "id" | "created_at">>,
 ): void {
   const all = getProducts().map((p) =>
-    p.id === id ? { ...p, ...data, vat_rate: 0.19 } : p,
+    p.id === id ? normalizeProduct({ ...p, ...data }) : p,
   );
   saveProducts(all);
 }
@@ -268,6 +319,47 @@ export function getInvoices(): Invoice[] {
 
 export function saveInvoices(invoices: Invoice[]): void {
   save(KEYS.invoices, invoices);
+}
+
+export function getChecks(): Check[] {
+  return load<Check[]>(KEYS.checks, []);
+}
+
+export function saveChecks(checks: Check[]): void {
+  save(KEYS.checks, checks);
+}
+
+export function getSuggestedCheckNumber(): string {
+  const next = getChecks().reduce((max, check) => {
+    const parsed = Number.parseInt(check.check_number.replace(/\D/g, ""), 10);
+    return Number.isFinite(parsed) ? Math.max(max, parsed) : max;
+  }, 0) + 1;
+
+  return String(next).padStart(6, "0");
+}
+
+export function createCheck(
+  data: Omit<Check, "id" | "created_at">,
+): Check {
+  const check: Check = {
+    ...data,
+    id: generateId(),
+    created_at: new Date().toISOString(),
+  };
+  const all = getChecks();
+  all.push(check);
+  saveChecks(all);
+  return check;
+}
+
+export function updateCheck(
+  id: string,
+  data: Partial<Omit<Check, "id" | "created_at">>,
+): void {
+  const all = getChecks().map((check) =>
+    check.id === id ? { ...check, ...data } : check,
+  );
+  saveChecks(all);
 }
 
 export function getNextCounter(): number {
@@ -334,7 +426,7 @@ export function updateInvoice(
 export function calcLineTotals(
   quantity: number,
   unit_price: number,
-  vat_rate = 0.19,
+  vat_rate = DEFAULT_VAT_RATE,
 ) {
   const line_subtotal = round2(quantity * unit_price);
   const line_vat = round2(line_subtotal * vat_rate);
@@ -363,6 +455,7 @@ export function exportData(): AppData {
     products: getProducts(),
     customers: getCustomers(),
     invoices: getInvoices(),
+    checks: getChecks(),
     counter: load<number>(KEYS.counter, 0),
   };
 }
@@ -382,6 +475,7 @@ export function importData(raw: unknown): { ok: boolean; error?: string } {
   saveProducts(d.products as Product[]);
   saveCustomers(d.customers as Customer[]);
   saveInvoices(d.invoices as Invoice[]);
+  saveChecks(Array.isArray(d.checks) ? (d.checks as Check[]) : []);
   save(KEYS.counter, d.counter);
   return { ok: true };
 }
@@ -404,7 +498,9 @@ export const VELVETGLOW_SEED: Omit<Customer, "id" | "created_at"> = {
 // SEED: 21 productos del Kardex (Ruby Rose & Trendy)
 // Precios en COP (puntos = separador de miles en Colombia)
 // ============================================================
-type ProductSeed = Omit<Product, "id" | "created_at">;
+type ProductSeed = Omit<Product, "id" | "created_at" | "aplicaIVA"> & {
+  aplicaIVA?: boolean;
+};
 
 export const SEED_PRODUCTS: ProductSeed[] = [
   // ── RUBY ROSE ──────────────────────────────────────────────
@@ -573,7 +669,7 @@ export function initSeedData(): void {
       ...p,
       id: generateId(),
       created_at: now,
-    }));
+    })).map((product) => normalizeProduct(product));
     saveProducts(products);
   }
 

@@ -1,5 +1,5 @@
 import { useParams, Link } from "react-router-dom";
-import { getInvoices, getEmisor, getStores } from "../lib/storage";
+import { getInvoices, DEFAULT_VAT_RATE } from "../lib/storage";
 import { downloadInvoicePDF } from "../lib/pdf";
 import { useState } from "react";
 
@@ -27,6 +27,8 @@ export default function InvoiceDetail() {
   }
 
   const c = invoice.customer_snapshot;
+  const getItemVatRate = (vatRate?: number) =>
+    (((typeof vatRate === "number" ? vatRate : DEFAULT_VAT_RATE) || 0) * 100).toFixed(0);
 
   function fmt(n: number) {
     return n.toLocaleString("es-CO", {
@@ -178,7 +180,7 @@ export default function InvoiceDetail() {
                   <td className="td-center">{item.unit}</td>
                   <td className="td-right">{item.quantity}</td>
                   <td className="td-right">${fmt(item.unit_price)}</td>
-                  <td className="td-right">19%</td>
+                  <td className="td-right">{getItemVatRate(item.vat_rate)}%</td>
                   <td className="td-right">${fmt(item.line_vat)}</td>
                   <td className="td-right">
                     <strong>${fmt(item.line_total)}</strong>
@@ -197,7 +199,7 @@ export default function InvoiceDetail() {
               <span>${fmt(invoice.subtotal)}</span>
             </div>
             <div className="row">
-              <span>IVA 19%:</span>
+              <span>IVA:</span>
               <span>${fmt(invoice.vat_total)}</span>
             </div>
             <div className="row grand">

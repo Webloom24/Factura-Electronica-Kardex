@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import {
-  getProducts, createProduct, updateProduct, deleteProduct,
+  getProducts, createProduct, updateProduct, deleteProduct, getProductVatRate,
   type Product,
 } from '../lib/storage'
 
@@ -9,9 +9,10 @@ interface FormState {
   sku: string
   unit: string
   price_sale: string
+  aplicaIVA: boolean
 }
 
-const EMPTY_FORM: FormState = { name: '', sku: '', unit: 'UND', price_sale: '' }
+const EMPTY_FORM: FormState = { name: '', sku: '', unit: 'UND', price_sale: '', aplicaIVA: true }
 
 export default function Products() {
   const [products, setProducts] = useState<Product[]>([])
@@ -33,7 +34,13 @@ export default function Products() {
 
   function openEdit(p: Product) {
     setEditing(p)
-    setForm({ name: p.name, sku: p.sku ?? '', unit: p.unit, price_sale: String(p.price_sale) })
+    setForm({
+      name: p.name,
+      sku: p.sku ?? '',
+      unit: p.unit,
+      price_sale: String(p.price_sale),
+      aplicaIVA: p.aplicaIVA ?? true,
+    })
     setError('')
     setShowModal(true)
   }
@@ -58,6 +65,7 @@ export default function Products() {
       unit: form.unit.trim() || 'UND',
       price_sale: price,
       vat_rate: 0.19,
+      aplicaIVA: form.aplicaIVA,
     }
 
     if (editing) {
@@ -105,11 +113,12 @@ export default function Products() {
                     <td>{p.sku ?? <span style={{ color: '#aaa' }}>—</span>}</td>
                     <td>{p.unit}</td>
                     <td className="td-right">${fmt(p.price_sale)}</td>
-                    <td className="td-right">19%</td>
+                    <td className="td-right">{(getProductVatRate(p) * 100).toFixed(0)}%</td>
                     <td className="td-actions">
-                      <button className="btn btn-ghost btn-sm" onClick={() => openEdit(p)}>Editar</button>
-                      {' '}
-                      <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p.id)}>Eliminar</button>
+                      <div className="table-actions">
+                        <button className="btn btn-ghost btn-sm" onClick={() => openEdit(p)}>Editar</button>
+                        <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p.id)}>Eliminar</button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -144,8 +153,14 @@ export default function Products() {
                     onChange={e => setForm(f => ({ ...f, price_sale: e.target.value }))} placeholder="0.00" />
                 </div>
                 <div className="form-group">
-                  <label>IVA</label>
-                  <input value="19% (fijo)" readOnly />
+                  <label className="checkbox-field">
+                    <input
+                      type="checkbox"
+                      checked={form.aplicaIVA}
+                      onChange={e => setForm(f => ({ ...f, aplicaIVA: e.target.checked }))}
+                    />
+                    <span>Aplica IVA (19%)</span>
+                  </label>
                 </div>
               </div>
               <div className="form-actions">

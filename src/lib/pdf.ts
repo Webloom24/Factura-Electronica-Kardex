@@ -6,7 +6,7 @@
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import type { Invoice } from './storage'
-import { getEmisor, getStores } from './storage'
+import { DEFAULT_VAT_RATE } from './storage'
 
 function fmt(n: number): string {
   return n.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -23,6 +23,25 @@ export function downloadInvoicePDF(invoice: Invoice): void {
   const c = invoice.customer_snapshot
   // Cast to `any` because the `Invoice` type is missing supplier fields
   const i = invoice as any;
+  const taxBreakdown = Array.from(
+    invoice.items.reduce((map, item) => {
+      const rate =
+        typeof item.vat_rate === 'number' && Number.isFinite(item.vat_rate)
+          ? item.vat_rate
+          : DEFAULT_VAT_RATE
+      const current = map.get(rate) ?? { base: 0, tax: 0 }
+      current.base += item.line_subtotal
+      current.tax += item.line_vat
+      map.set(rate, current)
+      return map
+    }, new Map<number, { base: number; tax: number }>()),
+  ).sort(([rateA], [rateB]) => rateA - rateB)
+  const exemptBase = taxBreakdown
+    .filter(([rate]) => rate === 0)
+    .reduce((acc, [, values]) => acc + values.base, 0)
+  const taxableBase = taxBreakdown
+    .filter(([rate]) => rate > 0)
+    .reduce((acc, [, values]) => acc + values.base, 0)
 
   // ── helpers ─────────────────────────────────────────────────
   const bold   = (sz: number) => { doc.setFont('helvetica', 'bold');   doc.setFontSize(sz) }
@@ -165,9 +184,9 @@ export function downloadInvoicePDF(invoice: Invoice): void {
   y += 5.5
 
   const valRows: [string, string][] = [
-    ['Vr. Exento (4%):', '$0,00'],
-    ['Base Gravable (sin IVA):', `$${fmt(invoice.subtotal)}`],
-    ['IVA (19%):', `$${fmt(invoice.vat_total)}`],
+    ['Vr. Exento:', `$${fmt(exemptBase)}`],
+    ['Base Gravable:', `$${fmt(taxableBase)}`],
+    ['IVA:', `$${fmt(invoice.vat_total)}`],
   ]
   valRows.forEach(([lbl, val]) => {
     normal(9);  doc.text(lbl, M + 30, y)
@@ -199,7 +218,15 @@ export function downloadInvoicePDF(invoice: Invoice): void {
     margin: { left: M, right: M },
     head: [['Descripción', '%', 'Vr. Base', 'Vr. Impto.']],
     body: [
-      ['IVA BIENES', '19.00', `$${fmt(invoice.subtotal)}`, `$${fmt(invoice.vat_total)}`],
+      ...(taxBreakdown.filter(([rate]) => rate > 0).map(([rate, values]) => [
+        'IVA BIENES',
+        (rate * 100).toFixed(2),
+        `$${fmt(values.base)}`,
+        `$${fmt(values.tax)}`,
+      ]) as string[][]),
+      ...(taxBreakdown.some(([rate]) => rate > 0)
+        ? []
+        : [['IVA BIENES', '0.00', '$0,00', '$0,00']]),
     ],
     headStyles: {
       fillColor: [230, 230, 230] as [number, number, number],

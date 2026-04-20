@@ -146,9 +146,10 @@ export default function Customers() {
                     <td>{c.phone}</td>
                     <td style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.address}</td>
                     <td className="td-actions">
-                      <button className="btn btn-ghost btn-sm" onClick={() => openEdit(c)}>Editar</button>
-                      {' '}
-                      <button className="btn btn-danger btn-sm" onClick={() => handleDelete(c.id)}>Eliminar</button>
+                      <div className="table-actions">
+                        <button className="btn btn-ghost btn-sm" onClick={() => openEdit(c)}>Editar</button>
+                        <button className="btn btn-danger btn-sm" onClick={() => handleDelete(c.id)}>Eliminar</button>
+                      </div>
                     </td>
                   </tr>
                 ))}

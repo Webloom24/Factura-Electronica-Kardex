@@ -165,7 +165,7 @@ export default function Settings() {
         {storesSaved && <div className="alert alert-success">Tiendas guardadas correctamente.</div>}
         <form onSubmit={handleSaveStores}>
           {stores.map((store, idx) => (
-            <div key={store.id} style={{
+            <div key={store.id} className="settings-store-row" style={{
               display: 'flex', gap: 10, alignItems: 'flex-end',
               padding: '12px 0', borderBottom: idx < stores.length - 1 ? '1px solid #f1f5f9' : 'none',
             }}>
@@ -204,7 +204,7 @@ export default function Settings() {
               {/* Color */}
               <div className="form-group" style={{ flexShrink: 0, margin: 0 }}>
                 <label style={{ fontSize: '0.78rem' }}>Color</label>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <div className="settings-store-color" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                   <input
                     type="color"
                     value={store.bg || '#6366f1'}
@@ -235,7 +235,7 @@ export default function Settings() {
             </div>
           ))}
 
-          <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div className="settings-store-actions" style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             <button type="button" className="btn btn-ghost" onClick={addStore}>
               + Agregar tienda
             </button>
@@ -260,7 +260,7 @@ export default function Settings() {
       <div className="card">
         <div className="card-title">📤 Exportar datos</div>
         <p style={{ marginBottom: 14, color: '#64748b', fontSize: '0.9rem' }}>
-          Descarga todos tus productos, clientes y facturas como archivo JSON. Guárdalo como respaldo.
+          Descarga todos tus productos, clientes, facturas y cheques como archivo JSON. Guárdalo como respaldo.
         </p>
         <button className="btn btn-primary" onClick={handleExport}>
           Descargar backup JSON
@@ -271,7 +271,7 @@ export default function Settings() {
       <div className="card">
         <div className="card-title">📥 Importar datos</div>
         <p style={{ marginBottom: 14, color: '#64748b', fontSize: '0.9rem' }}>
-          Restaura desde un archivo JSON exportado anteriormente.
+          Restaura desde un archivo JSON exportado anteriormente, incluyendo cheques si existen en el respaldo.
           <strong style={{ color: '#dc2626' }}> Los datos actuales serán reemplazados.</strong>
         </p>
         {importStatus && (

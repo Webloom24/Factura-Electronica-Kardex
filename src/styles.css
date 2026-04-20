@@ -23,7 +23,7 @@
 
 html { font-size: 15px; }
 body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-       background: var(--bg); color: var(--text); line-height: 1.5; }
+       background: var(--bg); color: var(--text); line-height: 1.5; overflow-x: hidden; }
 
 a { color: var(--blue-light); text-decoration: none; }
 a:hover { text-decoration: underline; }
@@ -142,7 +142,7 @@ button, .btn {
   justify-content: center;
   gap: 6px;
   padding: 9px 16px;
-  min-height: 40px;
+  min-height: 44px;
   border: none;
   border-radius: 6px;
   font-size: 0.875rem;
@@ -163,6 +163,12 @@ button:disabled, .btn:disabled { opacity: .4; cursor: not-allowed; }
 .btn-ghost    { background: transparent; color: var(--blue-light); border: 1px solid var(--blue-light); }
 .btn-sm       { padding: 5px 10px; font-size: 0.8rem; min-height: 32px; }
 .btn-block    { width: 100%; }
+.table-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
 
 /* ════════════════════════════════════════════════════════════
    TABLAS
@@ -234,6 +240,12 @@ input, select, textarea {
   /* iOS: evita zoom al hacer foco */
   font-size: max(16px, 0.9rem);
 }
+input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--blue);
+  flex: 0 0 auto;
+}
 input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--blue-light);
@@ -241,6 +253,30 @@ input:focus, select:focus, textarea:focus {
 }
 input[readonly] { background: #f8faff; color: var(--text-muted); }
 textarea { resize: vertical; min-height: 70px; font-size: 0.9rem; }
+.checkbox-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  color: var(--text);
+}
+.checkbox-field span {
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.compact-input {
+  min-width: 72px;
+}
+.compact-input-qty {
+  width: 84px;
+}
+.compact-input-price {
+  width: 124px;
+}
+.invoice-inline-input {
+  font-size: 12px;
+}
 
 .form-actions {
   display: flex;
@@ -267,7 +303,7 @@ textarea { resize: vertical; min-height: 70px; font-size: 0.9rem; }
 .modal {
   background: var(--surface);
   border-radius: 16px 16px 0 0;
-  padding: 24px 20px;
+  padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
   width: 100%;
   max-width: 100%;
   max-height: 95vh;
@@ -361,6 +397,15 @@ textarea { resize: vertical; min-height: 70px; font-size: 0.9rem; }
   flex-wrap: wrap;
 }
 .items-header span { font-weight: 700; color: var(--blue); font-size: 0.9rem; }
+.settings-store-row {
+  width: 100%;
+}
+.settings-store-color {
+  flex-wrap: wrap;
+}
+.settings-store-actions {
+  width: 100%;
+}
 
 /* ── CUFE ── */
 .cufe-display {
@@ -481,6 +526,22 @@ textarea { resize: vertical; min-height: 70px; font-size: 0.9rem; }
 
   /* Botones de acción en tabla: stack */
   .td-actions { white-space: normal; }
+  .table-actions { justify-content: stretch; }
+  .table-actions > * { flex: 1 1 100%; }
+  .btn-sm { min-height: 40px; }
+  .compact-input,
+  .compact-input-qty,
+  .compact-input-price { width: 100%; min-width: 0; }
+  .settings-store-row {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+  .settings-store-color {
+    width: 100%;
+  }
+  .settings-store-actions > * {
+    width: 100%;
+  }
 
   /* badge tamaño */
   .badge { font-size: 0.7rem; }
@@ -496,3 +557,133 @@ textarea { resize: vertical; min-height: 70px; font-size: 0.9rem; }
 .mt-2 { margin-top: 16px; }
 .flex-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .flex-between { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+
+/* ============================================================
+   CHEQUES
+   ============================================================ */
+.checks-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+.checks-list-column,
+.checks-editor-column {
+  min-width: 0;
+}
+.check-preview {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(219, 234, 254, 0.55), rgba(255, 255, 255, 0.96)),
+    var(--surface);
+  padding: 18px;
+  overflow: hidden;
+}
+.check-preview-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.check-preview-top-right {
+  text-align: right;
+}
+.check-bank {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.check-number {
+  margin-top: 6px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--blue);
+}
+.check-meta {
+  font-size: 0.84rem;
+  color: var(--text-muted);
+}
+.check-line {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px dashed #cbd5e1;
+}
+.check-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.check-value {
+  min-width: 0;
+  font-size: 1rem;
+  color: var(--text);
+  word-break: break-word;
+}
+.check-value-multiline {
+  line-height: 1.6;
+}
+.check-amount {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--blue);
+  text-align: right;
+}
+.check-preview-bottom {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: flex-end;
+  margin-top: 22px;
+}
+.check-footnote {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+.check-signature-block {
+  width: 220px;
+  max-width: 100%;
+}
+.check-signature-line {
+  border-top: 1px solid #94a3b8;
+  margin-bottom: 8px;
+}
+.check-signature-text {
+  font-size: 0.84rem;
+  text-align: center;
+  color: var(--text);
+}
+
+@media (min-width: 960px) {
+  .checks-layout {
+    grid-template-columns: minmax(320px, 0.95fr) minmax(0, 1.35fr);
+    align-items: start;
+  }
+  .checks-list-column {
+    position: sticky;
+    top: 74px;
+  }
+}
+
+@media (max-width: 639px) {
+  .check-preview {
+    padding: 14px;
+  }
+  .check-preview-top,
+  .check-preview-bottom {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .check-preview-top-right {
+    text-align: left;
+  }
+  .check-line {
+    grid-template-columns: 1fr;
+  }
+  .check-amount {
+    text-align: left;
+  }
+}
